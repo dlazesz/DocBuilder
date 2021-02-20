@@ -1,0 +1,6 @@
+{
+	"port": 8000,
+	"root": "www",
+	"templates": "templates",
+	"debug": 1
+}

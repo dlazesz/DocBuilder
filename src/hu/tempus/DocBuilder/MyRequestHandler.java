@@ -1,0 +1,145 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package hu.tempus.DocBuilder;
+
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import javax.json.JsonArray;
+
+import hu.tempus.HtmlGui.Config;
+import hu.tempus.HtmlGui.IOUtils;
+import hu.tempus.HtmlGui.JsonHelper;
+import hu.tempus.HtmlGui.RequestHandler;
+
+/**
+ *
+ * @author TeMPuS
+ */
+public class MyRequestHandler extends RequestHandler {
+
+	Config config;
+
+	public MyRequestHandler(Config config) {
+		super(config);
+		this.config = config;
+	}
+
+	@Override
+	public void onStart() {
+
+	}
+
+	@Override
+	protected boolean process(RequestWrapper req) throws IOException {
+
+		// if (req.path.equals("/changelog")) {
+		// Map<String, String> p = new HashMap<>();
+		// p.put("auth", PREFS.getValue("auth"));
+		// IOUtils.ReadFile f = IOUtils.fetchURL(UPLINK.replace("/kiosk", "/changelog"),
+		// p);
+
+		// Headers h = req.request.getResponseHeaders();
+		// h.add("Content-Type", "text/plain;charset=utf-8");
+		// req.request.sendResponseHeaders(200, 0);
+		// IOUtils.redirect(f.is, req.getOutputStream());
+		// return true;
+		// }
+
+		String[] path = req.path.substring(1).split("/");
+
+		// static files
+		if (path.length > 1 && IOUtils.isFile(mRoot + req.path)) {
+			return false;
+		}
+
+		Map<String, Object> resp = new LinkedHashMap<>();
+
+		// template handling
+		if (path[0].equals("open")) {
+			DocEditor editor = DocEditor.open();
+			if (editor == null) {
+				resp.put("success", true);
+			} else {
+				String error = editor.getLastError();
+				resp.put("success", error.isEmpty());
+				if (!error.isEmpty()) {
+					resp.put("error", editor.getLastError());
+				} else {
+					resp.put("id", editor.fileId);
+					resp.put("chunks", JsonHelper.pojoToJson(editor.getChunks()));
+				}
+			}
+			return req.sendData(resp);
+		}
+		if (path[0].equals("restore")) {
+			Integer fileId = Integer.parseInt(req.getParameter("id", "0"));
+			DocEditor editor = DocEditor.load(fileId);
+			if (editor == null) {
+				resp.put("error", "Object is not found");
+				return req.sendData(resp);
+			}
+			resp.put("success", true);
+			resp.put("id", editor.fileId);
+			resp.put("chunks", JsonHelper.pojoToJson(editor.getChunks()));
+			return req.sendData(resp);
+		}
+		if (path[0].equals("save")) {
+			Integer fileId = Integer.parseInt(req.getParameter("id", "0"));
+			DocEditor editor = DocEditor.load(fileId);
+			if (editor == null) {
+				resp.put("error", "Object is not found");
+				return req.sendData(resp);
+			}
+			editor.setChunks((JsonArray) JsonHelper.parse(req.request.getRequestBody()));
+			boolean saved = editor.save("1".equals(req.getParameter("create")));
+			resp.put("success", saved || editor.getLastError().isEmpty());
+			resp.put("error", editor.getLastError());
+			return req.sendData(resp);
+		}
+
+		// Admin Handling
+
+		// Start upgrade
+		// if (req.path.equals("/upgrade")) {
+		// if (!HAS_UPGRADE) {
+		// return req.sendData("0 OK");
+		// }
+		// String fn = mConfig.getValue("JAR");
+		// if (fn != null) {
+		// try {
+		// Map<String, String> p = new HashMap<>();
+		// p.put("auth", PREFS.getValue("auth"));
+		// IOUtils.ReadFile f = IOUtils.fetchURL(UPLINK.replace("/kiosk", "/download"),
+		// p);
+		// if (f.is != null) {
+		// fn = fn.replace(".jar", ".new.jar");
+		// IOUtils.redirect(f, new FileOutputStream(fn));
+		// } else {
+		// fn = null;
+		// }
+		// } catch (Exception e) {
+		// fn = null;
+		// e.printStackTrace(System.err);
+		// }
+
+		// }
+		// if (fn != null) {
+		// req.sendData("0 OK");
+		// Runtime.getRuntime().exec("javaw -jar \"" + fn + "\"");
+		// System.exit(0);
+		// return true;
+		// } else {
+		// return req.sendError(400, "Please <a href='" + UPLINK.replace("/kiosk",
+		// "/download") + "'>download</a> the new version manually!");
+		// }
+		// }
+
+		return super.process(req);
+	}
+
+}
