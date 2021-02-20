@@ -20,7 +20,7 @@ table { border-collapse:collapse; margin:0 auto 1em; }
 table td { text-align:left; border:1px solid; padding:.25em .5em; line-height:1.25; }
 
 input, select, textarea, button { font-family:inherit; font-size:inherit; line-height:1.25; }
-.input { width:100%; max-width:30em; padding:.25em .5em; margin:.25em .5em; height:2em; }
+.input { display:block; width:100%; max-width:30em; padding:.25em .5em; margin:.25em auto; height:2em; }
 textarea.input { height:auto; min-height:8em; resize:vertical; }
 
 .btn {

@@ -99,10 +99,10 @@ var Editor = function (dom) {
 		}
 
 		if (e.target.matches('.plus-one')) {
-			var cid = parseInt(e.target.dataset.cid);
+			var cid = parseInt(e.target.dataset.next);
 			dom.insertBefore(self.renderChunk(cid), e.target);
 			if (self.chunks.length > cid + 1) {
-				e.target.dataset.cid = cid + 1;
+				e.target.dataset.next = cid + 1;
 			} else {
 				e.target.remove();
 			}
@@ -119,22 +119,27 @@ var Editor = function (dom) {
 }
 Editor.TYPES = {
 	_default_: {
+		remove: function (input, chunk) {
+		},
 		getValue: function (input, chunk) {
 			return input.value;
 		},
-		render: function (chunk) {
+		render: function (chunk, cid) {
 			if (!chunk.id || !chunk.name) {
 				var e = document.createElement('pre');
-				e.textContent = chunk.value;
+				e.innerHTML = chunk.value;
 				return e;
 			}
 			var e = document.createElement('textarea');
 			e.className = 'input';
-			e.textContent = chunk.value;
+			e.value = chunk.value;
 			return e;
 		}
 	}
 };
+Editor.getType = function (type) {
+	return (type ? Editor.TYPES[type] : false) || Editor.TYPES._default_;
+}
 Editor.prototype.load = function (data, show_filler) {
 	if (!data.id) return;
 	this.id = localStorage.last_id = data.id;
@@ -192,26 +197,34 @@ Editor.prototype.onsaved = function (callback) {
 	var self = this;
 	each('[data-cid]', function (i) {
 		var c = self.chunks[i.dataset.cid];
-		var t = (c.name ? Editor.TYPES[c.name] : false) || Editor.TYPES._default_;
-		if (c.id && t.getValue) {
-			if (c.value != (t || Editor.TYPES._default_).getValue(i, c)) {
-				saved = false;
-			}
+		var t = Editor.getType(c.name);
+		if (c.id && t.getValue && c.value.replace(/\r?\n/g,'\n') != t.getValue(i, c).replace(/\r?\n/g,'\n')) {
+			saved = false;
 		}
 	}, self.dom);
 	if (!callback) {
 		return saved;
-	} else if (saved) {
-		callback();
-		return;
 	}
-	addConfirm('There are unsaved changes! Are you sure?', callback);
+	function oncontinue() {
+		each('[data-cid]', function (i) {
+			var c = self.chunks[i.dataset.cid];
+			var t = Editor.getType(c.name);
+			if (t.remove) t.remove(i, c);
+		}, self.dom);
+		callback();
+	}
+
+	if (saved) {
+		oncontinue();
+	} else {
+		addConfirm('There are unsaved changes! Are you sure?', oncontinue);
+	}
 }
 Editor.prototype.onchange = function (input) {
 	var c = this.chunks[input.dataset.cid];
-	var t = (c.name ? Editor.TYPES[c.name] : false) || Editor.TYPES._default_;
+	var t = Editor.getType(c.name);
 	if (c.id && t.getValue) {
-		c.value = (t || Editor.TYPES._default_).getValue(input, c);
+		c.value = t.getValue(input, c);
 		save([c]);
 	}
 }
@@ -226,7 +239,7 @@ Editor.prototype.render = function (cid) {
 			var a = document.createElement('a');
 			a.setAttribute('href', '#');
 			a.className = 'btn plus-one';
-			a.dataset.cid = cid + 1;
+			a.dataset.next = cid + 1;
 			a.innerHTML = '+1';
 			self.dom.appendChild(a);
 		}
@@ -234,8 +247,7 @@ Editor.prototype.render = function (cid) {
 }
 Editor.prototype.renderChunk = function (cid) {
 	var c = this.chunks[cid];
-	var t = c.name ? Editor.TYPES[c.name] : false;
-	var e = (t || Editor.TYPES._default_).render(c);
+	var e = Editor.getType(c.name).render(c, cid);
 	if (e) e.dataset.cid = cid;
 	return e;
 }
