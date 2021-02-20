@@ -172,7 +172,7 @@ public class DocEditor {
 		return false;
 	}
 
-	public boolean buildFile(File file) {
+	synchronized public boolean buildFile(File file) {
 		try (OutputStream os = new FileOutputStream(file, false)) {
 			for (Chunk chunk : mChunks) {
 				os.write(chunk.value.getBytes("UTF-8"));

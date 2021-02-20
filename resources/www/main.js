@@ -27,19 +27,22 @@ window.addEventListener('DOMContentLoaded', function () {
 	});
 });
 
-function ttip(dom) {
+function ttip(dom, event) {
 	var c = dom.offsetParent;
+	var o = event ? [event.offsetY, event.offsetX] : [0, 0];
+	o[0] += dom.offsetTop;
+	o[1] += dom.offsetLeft;
 	var t = document.createElement('div');
 	t.className = 'tooltip';
-	if (dom.offsetTop > c.clientHeight / 2) {
-		t.style.bottom = (c.clientHeight - dom.offsetTop) + 'px';
+	if (o[0] > c.clientHeight / 2) {
+		t.style.bottom = (c.clientHeight - o[0]) + 'px';
 	} else {
-		t.style.top = (dom.offsetTop + dom.offsetHeight) + 'px';
+		t.style.top = (o[0] + (event ? 0 : dom.offsetHeight)) + 'px';
 	}
-	if (dom.offsetLeft < c.clientWidth / 2) {
-		t.style.left = dom.offsetLeft + 'px';
+	if (o[1] < c.clientWidth / 2) {
+		t.style.left = o[1] + 'px';
 	} else {
-		t.style.right = (c.clientWidth - dom.offsetLeft - dom.offsetWidth) + 'px';
+		t.style.right = (c.clientWidth - o[1] - (event ? 0 : dom.offsetWidth)) + 'px';
 	}
 
 	each('.tooltip', function (i) {
@@ -68,10 +71,8 @@ var Editor = function (dom) {
 
 	dom.addEventListener('click', function (e) {
 		if (e.target && e.target.matches('[data-render]')) {
-			//TODO: save before?
-			dom.innerHTML = '';
 			var cid = parseInt(e.target.dataset.render);
-			if (self.chunks.length) self.render(cid);
+			if (self.chunks[cid]) self.render(cid);
 		}
 
 		if (e.target && e.target.matches('.plus-one')) {
@@ -84,10 +85,18 @@ var Editor = function (dom) {
 			}
 		}
 	});
+
+	window.addEventListener('beforeunload', function(e) {
+		if (self.changed(true)) {
+			e.preventDefault();
+			e.returnValue = 'Unsaved changes!';
+			return 'Unsaved changes!';
+		}
+	});
 }
 Editor.TYPES = {
 	_default_: {
-		onchange: function (input, chunk) {
+		getValue: function (input, chunk) {
 			return input.value;
 		},
 		render: function (chunk) {
@@ -135,7 +144,7 @@ Editor.prototype.load = function (data, show_filler) {
 		++loading;
 		var e = document.createElement('script');
 		e.setAttribute('src', js);
-		e.addEventListener('load', function(){
+		e.addEventListener('load', function () {
 			--loading;
 		});
 		sel('body').appendChild(e);
@@ -155,17 +164,36 @@ Editor.prototype.load = function (data, show_filler) {
 	onload();
 
 }
+Editor.prototype.changed = function (no_dialog) {
+	var changed = false;
+	var self = this;
+	each('[data-cid]', function (i) {
+		var c = self.chunks[i.dataset.cid];
+		var t = (c.name ? Editor.TYPES[c.name] : false) || Editor.TYPES._default_;
+		if (c.id && t.getValue) {
+			if (c.value != (t || Editor.TYPES._default_).getValue(i, c)) {
+				changed = true;
+			}
+		}
+	}, self.dom);
+	if (!changed || no_dialog) {
+		return changed;
+	}
+	return !confirm('There are unsaved changes! Are you sure?');
+}
 Editor.prototype.onchange = function (input) {
 	var c = this.chunks[input.dataset.cid];
-	var t = c.name ? Editor.TYPES[c.name] : false;
-	if (c.id) {
-		c.value = (t || Editor.TYPES._default_).onchange(input, c);
+	var t = (c.name ? Editor.TYPES[c.name] : false) || Editor.TYPES._default_;
+	if (c.id && t.getValue) {
+		c.value = (t || Editor.TYPES._default_).getValue(input, c);
 		save([c]);
-	} else if (t) {
-		t.onchange(input, c);
 	}
 }
 Editor.prototype.render = function (cid) {
+	if (this.changed()) {
+		return;
+	}
+	this.dom.innerHTML = '';
 	this.dom.appendChild(this.renderPaginator(cid));
 	this.dom.appendChild(this.renderChunk(cid));
 
@@ -232,6 +260,9 @@ function delMsg() {
 }
 
 function open() {
+	if (editor.changed()) {
+		return;
+	}
 	fetch('/open').then(r => r.json()).then(function (data) {
 		if (!data.success) {
 			addMsg(data.error || 'Unknown Error');
@@ -242,6 +273,9 @@ function open() {
 }
 
 function restore() {
+	if (editor.changed()) {
+		return;
+	}
 	fetch('/restore?id=' + (localStorage.last_id || 0)).then(r => r.json()).then(function (data) {
 		if (!data.success) {
 			addMsg(data.error || 'Unknown Error');
