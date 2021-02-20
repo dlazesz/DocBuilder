@@ -6,3 +6,4 @@
 target
 DocBuilder.jar
 DocBuilder.log
+DocBuilder.pid

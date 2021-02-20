@@ -103,13 +103,17 @@ public class IOUtils {
 				return;
 			}
 			try {
+				System.out.println("read: " + file.getAbsolutePath());
 				if (file.exists()) {
 					is = new FileInputStream(file);
 					fileSize = (int) file.length();
 					modTime = file.lastModified();
 				} else {
-					URLConnection c = IOUtils.class.getClassLoader().getResource(file.getPath().replaceAll("\\\\", "/"))
-							.openConnection();
+					URL url = IOUtils.class.getClassLoader().getResource(file.getPath().replaceAll("\\\\", "/"));
+					if (url == null) {
+						return;
+					}
+					URLConnection c = url.openConnection();
 					is = c.getInputStream();
 					if (is != null) {
 						fileSize = c.getContentLength();
@@ -149,6 +153,8 @@ public class IOUtils {
 
 		@Override
 		public void close() throws IOException {
+			if (is == null)
+				return;
 			is.close(); // To change body of generated methods, choose Tools | Templates.
 		}
 

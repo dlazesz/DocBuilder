@@ -26,7 +26,7 @@ import com.sun.net.httpserver.HttpHandler;
 
 public class RequestHandler implements HttpHandler {
 
-	protected Config mConfig;
+	protected final Config mConfig;
 	protected final String mRoot;
 	protected WebServer mServer;
 	private final String origin;
