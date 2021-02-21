@@ -99,9 +99,10 @@ public class DocFilter extends FileFilter {
 				continue;
 			}
 			if (pos < start) {
-				c.id = ++id;
-				chunks.add(c);
+				chunks.add(new Chunk(++id, "", content.substring(pos, start)));
 			}
+			c.id = ++id;
+			chunks.add(c);
 			pos = match.getKey()[1];
 		}
 		if (pos < content.length()) {

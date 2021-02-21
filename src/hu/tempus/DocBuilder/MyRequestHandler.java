@@ -61,17 +61,18 @@ public class MyRequestHandler extends RequestHandler {
 		Map<String, Object> resp = new LinkedHashMap<>();
 
 		// file handling
-		if (path[0].matches("(open|restore|save)")) {
+		if (path[0].matches("(open|save)")) {
 			try {
+				String docId = req.getParameter("id", "");
 				DocEditor editor;
-				if (path[0].equals("open")) {
+				if (path[0].equals("open") && docId.isEmpty()) {
 					editor = DocEditor.open();
 					if (editor == null) {
 						resp.put("success", true);
 						return req.sendData(resp);
 					}
 				} else {
-					editor = DocEditor.load(req.getParameter("id", ""));
+					editor = DocEditor.load(docId);
 				}
 				if (path[0].equals("save")) {
 					editor.setChunks((JsonArray) JsonHelper.parse(req.request.getRequestBody()));

@@ -1,5 +1,5 @@
 function sel(s, dom) {
-	return (dom || document).querySelector(s) || {};
+	return (dom || document).querySelector(s);
 }
 function find(s, dom) {
 	return (dom || document).querySelectorAll(s) || [];
@@ -10,8 +10,8 @@ function each(s, fn, dom) {
 	)
 	for (var i = 0; i < arr.length; ++i) if (fn(arr[i], i) === false) break;
 }
-function evt(sel, t, fn, dom) {
-	each(sel, function (i) {
+function evt(s, t, fn, dom) {
+	each(s, function (i) {
 		t.split(' ').forEach(function (e) { i.addEventListener(e, fn); });
 	}, dom);
 }
@@ -25,7 +25,7 @@ function addMsg(message, cls) {
 function delMsg() {
 	sel('#message').innerHTML = '';
 }
-function addConfirm(message, callback) {
+function addConfirm(message, onconfirm) {
 	var m = document.createElement('div');
 	m.className = 'confirm';
 	m.innerHTML = message + '<a href="#" class="btn error yes">Yes</a> <a href="#" class="btn cancel">Cancel</a>';
@@ -33,39 +33,58 @@ function addConfirm(message, callback) {
 		var t = e.target;
 		if (!t || !t.matches('.yes,.cancel')) return;
 		t.closest('.confirm').remove();
-		if (t.matches('.yes')) callback();
+		if (t.matches('.yes')) onconfirm();
 	});
 	sel('body').appendChild(m);
-
 }
-function ttip(dom, event) {
+function ttip(dom, event, modal) {
 	var c = dom.offsetParent;
 	var o = event ? [event.offsetY, event.offsetX] : [0, 0];
 	o[0] += dom.offsetTop;
 	o[1] += dom.offsetLeft;
 	var t = document.createElement('div');
-	t.className = 'tooltip';
+	t.className = 'tooltip' + (modal ? ' modal' : '');
 	if (o[0] > c.clientHeight / 2) {
 		t.style.bottom = (c.clientHeight - o[0]) + 'px';
 	} else {
 		t.style.top = (o[0] + (event ? 0 : dom.offsetHeight)) + 'px';
 	}
-	if (o[1] < c.clientWidth / 2) {
-		t.style.left = o[1] + 'px';
+	if (!modal) {
+		if (o[1] < c.clientWidth / 2) {
+			t.style.left = o[1] + 'px';
+		} else {
+			t.style.right = (c.clientWidth - o[1] - (event ? 0 : dom.offsetWidth)) + 'px';
+		}
 	} else {
-		t.style.right = (c.clientWidth - o[1] - (event ? 0 : dom.offsetWidth)) + 'px';
+		t.innerHTML = '<a href="#" class="btn close">✕</a>';
 	}
-	each('.tooltip', function (i) {
-		i.remove();
-	}, c);
+	clean_ttip(t.closest('.tooltip'));
+	if (modal) document.body.classList.add('has-modal');
 	dom.parentNode.insertBefore(t, dom.nextSibling);
 	return t;
+}
+function clean_ttip(t) {
+	each('.tooltip:not(.modal)', function (i) {
+		if (i == t) return;
+		var t2 = find('.tooltip', i);
+		for (var j in t2) { if (t2[j] == t) return; }
+		setTimeout(function () { i.remove(); }, 50);
+	});
+	if (!sel('.tooltip.modal')) document.body.classList.remove('has-modal');
+}
+function disable(s, enable, dom) {
+	sel(s, dom).classList.toggle('disabled', !enable);
 }
 document.addEventListener('click', function (e) {
 	var t = e.target;
 	if (!t) return;
+	if (t.matches('.disabled')) {
+		e.stopPropagation();
+		e.preventDefault();
+	}
 	if (t.matches('a[href="#"]')) e.preventDefault();
-	each('.tooltip', function (i) { i.remove(); }, t);
+	if (t.matches('.tooltip .close')) t.closest('.tooltip').remove();
+	clean_ttip(t.closest('.tooltip:not(.dropdown)'));
 });
 
 window.addEventListener('DOMContentLoaded', function () {
@@ -76,20 +95,21 @@ window.addEventListener('DOMContentLoaded', function () {
 	});
 });
 
-var Editor = function (dom) {
+var Editor = function (dom, onchange) {
 	this.dom = dom;
-	this.data = {};
+	this.onchange_cb = onchange;
+	this.chunks = [];
 
 	var self = this;
 	dom.classList.add('editor');
 	dom.addEventListener('change', function (e) {
 		var t = e.target;
-		if (t && t.matches('[data-cid]')) self.onchange(t);
+		if (t && t.matches('[data-cid]')) self.onchange([t.dataset.cid]);
 	});
 	dom.addEventListener('click', function (e) {
 		var t = e.target;
 		if (!t) return;
-		if (t.matches('[data-render]')) self.render(parseInt(t.dataset.render));
+		if (t.matches('[data-render]')) self.render([parseInt(t.dataset.render)]);
 		if (t.matches('.plus-one')) {
 			var cid = parseInt(t.dataset.next);
 			dom.insertBefore(self.renderChunk(cid), t);
@@ -101,7 +121,7 @@ var Editor = function (dom) {
 		}
 	});
 	window.addEventListener('beforeunload', function (e) {
-		if (!self.onsaved()) {
+		if (self.ischanged()) {
 			e.preventDefault();
 			e.returnValue = 'Unsaved changes!';
 			return 'Unsaved changes!';
@@ -131,25 +151,28 @@ Editor.TYPES = {
 Editor.getType = function (type) {
 	return (type ? Editor.TYPES[type] : false) || Editor.TYPES._default_;
 }
-Editor.prototype.load = function (data, show_filler) {
+Editor.prototype.load = function (data, store_filler, onsuccess) {
 	if (!data.id) return;
-	this.id = localStorage.last_id = data.id;
-
-	if (!show_filler) {
-		this.chunks = [];
-		for (var c in data.chunks || []) {
-			if (!data.chunks[c].name) continue;
-			this.chunks.push(data.chunks[c]);
+	this.id = data.id;
+	this.eol = false;
+	this.chunks = [];
+	for (var c in data.chunks || []) {
+		c = data.chunks[c];
+		if (!store_filler && !c.name) continue;
+		if (!this.eol) {
+			var m = c.value.match(/(\r?\n|\r)/);
+			if (m) this.eol = m[1];
 		}
-	} else {
-		this.chunks = data.chunks || [];
+		this.chunks.push(c);
 	}
+	if (!this.eol) eol = '\n';
 
 	this.dom.innerHTML = '';
+	clean_ttip(this.dom);
 
 	for (var css in data.css || []) {
 		css = data.css[css];
-		if (sel('link[href="' + css + '"]').nodeName) continue;
+		if (sel('link[href="' + css + '"]')) continue;
 		var e = document.createElement('link');
 		e.setAttribute('rel', 'stylesheet');
 		e.setAttribute('href', css);
@@ -159,7 +182,7 @@ Editor.prototype.load = function (data, show_filler) {
 	var loading = 0;
 	for (var js in data.js || []) {
 		js = data.js[js];
-		if (sel('script[src="' + js + '"]').nodeName) continue;
+		if (sel('script[src="' + js + '"]')) continue;
 		++loading;
 		var e = document.createElement('script');
 		e.setAttribute('src', js);
@@ -177,24 +200,25 @@ Editor.prototype.load = function (data, show_filler) {
 			setTimeout(onload, 50);
 			return;
 		}
-		self.render(0);
+		self.render([0]);
 		addMsg('Document loaded', 'success');
+		if (onsuccess) onsuccess();
 	}
 	onload();
 
 }
-Editor.prototype.onsaved = function (callback) {
-	var saved = true;
+Editor.prototype.ischanged = function (onnotchanged) {
+	var changed = false;
 	var self = this;
 	each('[data-cid]', function (i) {
 		var c = self.chunks[i.dataset.cid];
 		var t = Editor.getType(c.name);
-		if (c.id && t.getValue && c.value.replace(/\r?\n/g, '\n') != t.getValue(i, c).replace(/\r?\n/g, '\n')) {
-			saved = false;
+		if (c.id && t.getValue && c.value != t.getValue(i, c).replace(/(\r?\n|\r)/g, self.eol)) {
+			changed = true;
 		}
 	}, self.dom);
-	if (!callback) {
-		return saved;
+	if (!onnotchanged) {
+		return changed;
 	}
 	function oncontinue() {
 		each('[data-cid]', function (i) {
@@ -202,48 +226,61 @@ Editor.prototype.onsaved = function (callback) {
 			var t = Editor.getType(c.name);
 			if (t.remove) t.remove(i, c);
 		}, self.dom);
-		callback();
+		onnotchanged();
 	}
 
-	if (saved) {
+	if (!changed) {
 		oncontinue();
 	} else {
 		addConfirm('There are unsaved changes! Are you sure?', oncontinue);
 	}
 }
-Editor.prototype.onchange = function (input) {
-	var c = this.chunks[input.dataset.cid];
-	var t = Editor.getType(c.name);
-	if (c.id && t.getValue) {
-		c.value = t.getValue(input, c);
-		//TODO undo redo - only save if changed
-		save([c]);
+Editor.prototype.onchange = function (cids) {
+	var chunks = {}, values = {}, changed = false;
+	for (var i in cids) {
+		var cid = cids[i];
+		var c = this.chunks[cid];
+		var t = Editor.getType(c.name);
+		if (c.id && t.getValue) {
+			var v = t.getValue(sel('[data-cid="' + cid + '"]', this.dom), c).replace(/(\r?\n|\r)/g, this.eol);
+			if (c.value != v) {
+				changed = true;
+				chunks[cid] = c;
+				values[cid] = v;
+			}
+		}
 	}
+	if (changed) this.onchange_cb(chunks, values);
 }
-Editor.prototype.render = function (cid) {
+Editor.prototype.render = function (cids) {
 	var self = this;
-	self.onsaved(function () {
+	self.ischanged(function () {
 		self.dom.innerHTML = '';
-		self.dom.appendChild(self.renderPaginator(cid));
-		self.dom.appendChild(self.renderChunk(cid));
-
-		if (self.chunks.length > cid + 1) {
+		clean_ttip(this.dom);
+		if (!cids.length) return;
+		self.dom.appendChild(self.renderPaginator(cids[0]));
+		for (var i in cids) {
+			self.dom.appendChild(self.renderChunk(cids[i]));
+		}
+		if (self.chunks.length > cids[cids.length - 1]) {
 			var a = document.createElement('a');
 			a.setAttribute('href', '#');
 			a.className = 'btn plus-one';
-			a.dataset.next = cid + 1;
+			a.dataset.next = parseInt(cids[cids.length - 1]) + 1;
 			a.innerHTML = '+1';
 			self.dom.appendChild(a);
 		}
 	});
 }
 Editor.prototype.renderChunk = function (cid) {
+	cid = parseInt(cid);
 	var c = this.chunks[cid];
 	var e = Editor.getType(c.name).render(c, cid);
 	if (e) e.dataset.cid = cid;
 	return e;
 }
 Editor.prototype.renderPaginator = function (cid) {
+	cid = parseInt(cid);
 	var cur = cid + 1;
 	var max = (this.chunks || []).length
 	if (max < 1) return;
@@ -276,32 +313,79 @@ Editor.prototype.renderPaginator = function (cid) {
 	return p;
 }
 
-var editor = new Editor(sel('#editor'));
+var History = function (name, max, onchange) {
+	this.name = name;
+	this.max = max;
+	this.data = JSON.parse(localStorage[name] || '[]');
+	this.onchange_cb = onchange;
+	if (this.onchange_cb) this.onchange_cb(this);
+}
+History.prototype.onchange = function () {
+	localStorage[this.name] = JSON.stringify(this.data);
+	if (this.onchange_cb) this.onchange_cb(this);
+}
+History.prototype.add = function (data) {
+	while (this.data.length >= this.max) {
+		this.data.pop();
+	}
 
-function open() {
-	editor.onsaved(function () {
-		fetch('/open').then(r => r.json()).then(function (data) {
-			if (!data.success) {
-				addMsg(data.error || 'Unknown Error');
-				return;
-			}
-			editor.load(data);
-		});
+	this.data.unshift(JSON.parse(JSON.stringify(data)));
+	this.onchange();
+}
+History.prototype.get = function (num, peek) {
+	var data = this.data[num || 0];
+	if (data && !peek) {
+		this.data.splice(num, 1);
+		this.onchange();
+	}
+	return data;
+}
+History.prototype.isEmpty = function () {
+	return this.data.length == 0;
+}
+History.prototype.walk = function (callback) {
+	for (var i in this.data) callback(this.data[i], i);
+}
+History.prototype.clear = function () {
+	this.data = [];
+	this.onchange();
+}
+
+// Project specific stuff
+
+var hist = { recent: null, undo: null, redo: null };
+for (var n in hist) {
+	hist[n] = new History('ed_' + n, 10, function (h) {
+		disable('.' + h.name.replace('_', '-'), !h.isEmpty());
 	});
 }
 
-function restore() {
-	editor.onsaved(function () {
-		fetch('/restore?id=' + encodeURIComponent(localStorage.last_id || 0)).then(r => r.json()).then(function (data) {
-			if (!data.success) {
-				addMsg(data.error || 'Unknown Error');
-				return;
-			}
-			editor.load(data);
+var editor = new Editor(sel('#editor'), function (chunks, values) {
+	hist.undo.add({ id: editor.id, chunks: chunks });
+	hist.redo.clear();
+	var tosave = [];
+	for (var cid in chunks) {
+		chunks[cid].value = values[cid];
+		tosave.push(chunks[cid]);
+	}
+	save(tosave);
+});
+
+function open(id, onsuccess) {
+	fetch('/open?id=' + encodeURIComponent(id || '')).then(r => r.json()).then(function (data) {
+		if (!data.success) {
+			addMsg(data.error || 'Unknown Error');
+			return;
+		}
+		editor.load(data, false, function () {
+			hist.recent.walk(function (data, i) {
+				if (data == editor.id) hist.recent.get(i);
+			})
+			hist.recent.add(editor.id);
+			if (onsuccess) onsuccess();
 		});
 	});
 }
-
 function save(chunks) {
 	fetch('/save?create=' + (chunks ? 0 : 1) + '&id=' + encodeURIComponent(editor.id || 0), {
 		method: 'POST',
@@ -315,6 +399,67 @@ function save(chunks) {
 		addMsg('Document saved', 'success');
 	});
 }
+function undo(reverse) {
+	var data = hist[reverse ? 'redo' : 'undo'].get();
+	if (!data) return;
+	editor.render([]);
+	function h() {
+		var current = {}, cids = [];
+		for (var cid in data.chunks) {
+			var c = editor.chunks[cid];
+			current[cid] = c;
+			cids.push(cid);
+		}
+		hist[reverse ? 'undo' : 'redo'].add({ id: data.id, chunks: current });
+		var tosave = [];
+		for (var cid in data.chunks) {
+			var d = data.chunks[cid];
+			editor.chunks[cid] = d;
+			tosave.push(d);
+		}
+		save(tosave);
+		editor.render(cids);
+	}
+	if (data.id != editor.id) {
+		open(data.id, h);
+	} else {
+		h();
+	}
+}
+
+sel('.ed-open').addEventListener('click', function () {
+	editor.ischanged(function () { open(); });
+});
+sel('.ed-recent').addEventListener('click', function (e) {
+	var t = ttip(e.target);
+	hist.recent.walk(function (data, id) {
+		var a = document.createElement('a');
+		a.setAttribute('href', '#');
+		a.dataset.open = id;
+		a.innerHTML = data.split("\t")[0].replace(/^.*?([^\\\/]+)$/, '$1');
+		t.appendChild(a);
+	});
+	t.classList.add('dropdown');
+	e.stopPropagation();
+});
+sel('.ed-save').addEventListener('click', function () {
+	save();
+});
+sel('.ed-undo').addEventListener('click', function () {
+	undo();
+});
+sel('.ed-redo').addEventListener('click', function () {
+	undo(true);
+});
+
+document.addEventListener('click', function (e) {
+	var t = e.target;
+	if (t && t.matches('[data-open]')) {
+		editor.ischanged(function () {
+			open(hist.recent.get(t.dataset.open));
+		});
+	}
+});
 
 // $(window).on('load resize', function () {
 // 	$('body').addClass('resizing');
