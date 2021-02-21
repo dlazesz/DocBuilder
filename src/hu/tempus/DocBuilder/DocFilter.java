@@ -19,6 +19,7 @@ import hu.tempus.HtmlGui.IOUtils;
 import hu.tempus.HtmlGui.JsonHelper;
 
 public class DocFilter extends FileFilter {
+	protected final String mId;
 	protected final String[] mExtension;
 	protected final FileFilter mFilter;
 	protected final File mDefaultContent;
@@ -28,6 +29,7 @@ public class DocFilter extends FileFilter {
 
 	public DocFilter(File file) {
 		JsonObject config = (JsonObject) JsonHelper.parse(new IOUtils.ReadFile(file));
+		mId = file.getName().replace("\\.json$", "");
 		mExtension = config.getString("extension", "").split("[,;] *");
 		mFilter = new FileNameExtensionFilter(config.getString("name", file.getName().replace("\\.[^.]+$", "")),
 				mExtension);
@@ -45,6 +47,10 @@ public class DocFilter extends FileFilter {
 				mCSS.add(file.getParent() + "/" + css);
 			}
 		}
+	}
+
+	public String getId() {
+		return mId;
 	}
 
 	public String getExtension(boolean with_dot) {
@@ -105,7 +111,10 @@ public class DocFilter extends FileFilter {
 	}
 
 	public String getDefaultContent() throws IOException {
-		return mDefaultContent == null ? null : IOUtils.read(new IOUtils.ReadFile(mDefaultContent));
+		if (mDefaultContent == null) {
+			throw new IOException("This template does not support file creation");
+		}
+		return IOUtils.read(new IOUtils.ReadFile(mDefaultContent));
 	}
 
 	@Override

@@ -1,9 +1,12 @@
 function sel(s, dom) {
 	return (dom || document).querySelector(s) || {};
 }
-function each(sel, fn, dom) {
-	var arr = typeof (sel) == 'string' ? ((dom || document).querySelectorAll(sel) || []) : (
-		sel instanceof HTMLElement ? [sel] : sel
+function find(s, dom) {
+	return (dom || document).querySelectorAll(s) || [];
+}
+function each(s, fn, dom) {
+	var arr = typeof (s) == 'string' ? find(s, dom) : (
+		s instanceof HTMLElement ? [s] : s
 	)
 	for (var i = 0; i < arr.length; ++i) if (fn(arr[i], i) === false) break;
 }
@@ -12,21 +15,6 @@ function evt(sel, t, fn, dom) {
 		t.split(' ').forEach(function (e) { i.addEventListener(e, fn); });
 	}, dom);
 }
-
-document.addEventListener('click', function (e) {
-	if (!e.target && e.target.matches('a[href="#"]')) {
-		e.preventDefault();
-	}
-});
-
-window.addEventListener('DOMContentLoaded', function () {
-	var _instanceId = Math.floor(Math.random() * 900000) + 100000;
-	navigator.sendBeacon('/add-session?id=' + _instanceId)
-	window.addEventListener('unload', function () {
-		navigator.sendBeacon('/del-session?id=' + _instanceId);
-	});
-});
-
 function addMsg(message, cls) {
 	var m = document.createElement('div');
 	m.className = cls || 'error';
@@ -42,14 +30,14 @@ function addConfirm(message, callback) {
 	m.className = 'confirm';
 	m.innerHTML = message + '<a href="#" class="btn error yes">Yes</a> <a href="#" class="btn cancel">Cancel</a>';
 	m.addEventListener('click', function (e) {
-		if (!e.target || !e.target.matches('.yes,.cancel')) return;
-		e.target.closest('.confirm').remove();
-		if (e.target.matches('.yes')) callback();
+		var t = e.target;
+		if (!t || !t.matches('.yes,.cancel')) return;
+		t.closest('.confirm').remove();
+		if (t.matches('.yes')) callback();
 	});
 	sel('body').appendChild(m);
 
 }
-
 function ttip(dom, event) {
 	var c = dom.offsetParent;
 	var o = event ? [event.offsetY, event.offsetX] : [0, 0];
@@ -67,7 +55,6 @@ function ttip(dom, event) {
 	} else {
 		t.style.right = (c.clientWidth - o[1] - (event ? 0 : dom.offsetWidth)) + 'px';
 	}
-
 	each('.tooltip', function (i) {
 		i.remove();
 	}, c);
@@ -75,8 +62,18 @@ function ttip(dom, event) {
 	return t;
 }
 document.addEventListener('click', function (e) {
-	if (!e.target) return;
-	each('.tooltip', function (i) { i.remove(); }, e.target);
+	var t = e.target;
+	if (!t) return;
+	if (t.matches('a[href="#"]')) e.preventDefault();
+	each('.tooltip', function (i) { i.remove(); }, t);
+});
+
+window.addEventListener('DOMContentLoaded', function () {
+	var _instanceId = Math.floor(Math.random() * 900000) + 100000;
+	navigator.sendBeacon('/add-session?id=' + _instanceId)
+	window.addEventListener('unload', function () {
+		navigator.sendBeacon('/del-session?id=' + _instanceId);
+	});
 });
 
 var Editor = function (dom) {
@@ -84,31 +81,25 @@ var Editor = function (dom) {
 	this.data = {};
 
 	var self = this;
-
+	dom.classList.add('editor');
 	dom.addEventListener('change', function (e) {
-		if (e.target && e.target.matches('[data-cid]')) {
-			self.onchange(e.target);
-		}
+		var t = e.target;
+		if (t && t.matches('[data-cid]')) self.onchange(t);
 	});
-
 	dom.addEventListener('click', function (e) {
-		if (!e.target) return;
-		if (e.target.matches('[data-render]')) {
-			var cid = parseInt(e.target.dataset.render);
-			if (self.chunks[cid]) self.render(cid);
-		}
-
-		if (e.target.matches('.plus-one')) {
-			var cid = parseInt(e.target.dataset.next);
-			dom.insertBefore(self.renderChunk(cid), e.target);
+		var t = e.target;
+		if (!t) return;
+		if (t.matches('[data-render]')) self.render(parseInt(t.dataset.render));
+		if (t.matches('.plus-one')) {
+			var cid = parseInt(t.dataset.next);
+			dom.insertBefore(self.renderChunk(cid), t);
 			if (self.chunks.length > cid + 1) {
-				e.target.dataset.next = cid + 1;
+				t.dataset.next = cid + 1;
 			} else {
-				e.target.remove();
+				t.remove();
 			}
 		}
 	});
-
 	window.addEventListener('beforeunload', function (e) {
 		if (!self.onsaved()) {
 			e.preventDefault();
@@ -198,7 +189,7 @@ Editor.prototype.onsaved = function (callback) {
 	each('[data-cid]', function (i) {
 		var c = self.chunks[i.dataset.cid];
 		var t = Editor.getType(c.name);
-		if (c.id && t.getValue && c.value.replace(/\r?\n/g,'\n') != t.getValue(i, c).replace(/\r?\n/g,'\n')) {
+		if (c.id && t.getValue && c.value.replace(/\r?\n/g, '\n') != t.getValue(i, c).replace(/\r?\n/g, '\n')) {
 			saved = false;
 		}
 	}, self.dom);
@@ -225,6 +216,7 @@ Editor.prototype.onchange = function (input) {
 	var t = Editor.getType(c.name);
 	if (c.id && t.getValue) {
 		c.value = t.getValue(input, c);
+		//TODO undo redo - only save if changed
 		save([c]);
 	}
 }
@@ -300,7 +292,7 @@ function open() {
 
 function restore() {
 	editor.onsaved(function () {
-		fetch('/restore?id=' + (localStorage.last_id || 0)).then(r => r.json()).then(function (data) {
+		fetch('/restore?id=' + encodeURIComponent(localStorage.last_id || 0)).then(r => r.json()).then(function (data) {
 			if (!data.success) {
 				addMsg(data.error || 'Unknown Error');
 				return;
@@ -311,7 +303,7 @@ function restore() {
 }
 
 function save(chunks) {
-	fetch('/save?create=' + (chunks ? 0 : 1) + '&id=' + (editor.id || 0), {
+	fetch('/save?create=' + (chunks ? 0 : 1) + '&id=' + encodeURIComponent(editor.id || 0), {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(chunks || editor.chunks)

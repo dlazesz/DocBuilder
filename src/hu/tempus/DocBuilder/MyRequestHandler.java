@@ -62,39 +62,33 @@ public class MyRequestHandler extends RequestHandler {
 
 		// file handling
 		if (path[0].matches("(open|restore|save)")) {
-			DocEditor editor;
-			if (path[0].equals("open")) {
-				editor = DocEditor.open();
-				if (editor == null) {
+			try {
+				DocEditor editor;
+				if (path[0].equals("open")) {
+					editor = DocEditor.open();
+					if (editor == null) {
+						resp.put("success", true);
+						return req.sendData(resp);
+					}
+				} else {
+					editor = DocEditor.load(req.getParameter("id", ""));
+				}
+				if (path[0].equals("save")) {
+					editor.setChunks((JsonArray) JsonHelper.parse(req.request.getRequestBody()));
+					editor.save("1".equals(req.getParameter("create")));
 					resp.put("success", true);
 					return req.sendData(resp);
 				}
-			} else {
-				Integer fileId = Integer.parseInt(req.getParameter("id", "0"));
-				editor = DocEditor.load(fileId);
-				if (editor == null) {
-					resp.put("error", "Object is not found");
-					return req.sendData(resp);
-				}
-			}
-			if (path[0].equals("save")) {
-				editor.setChunks((JsonArray) JsonHelper.parse(req.request.getRequestBody()));
-				boolean saved = editor.save("1".equals(req.getParameter("create")));
-				resp.put("success", saved || editor.getLastError().isEmpty());
-				resp.put("error", editor.getLastError());
-				return req.sendData(resp);	
-			}
-			String error = editor.getLastError();
-			resp.put("success", error.isEmpty());
-			if (!error.isEmpty()) {
-				resp.put("error", editor.getLastError());
-			} else {
+				resp.put("success", true);
 				resp.put("id", editor.getId());
 				resp.put("chunks", JsonHelper.pojoToJson(editor.getChunks()));
 				resp.put("js", JsonHelper.pojoToJson(editor.getJS()));
 				resp.put("css", JsonHelper.pojoToJson(editor.getCSS()));
+				return req.sendData(resp);
+			} catch (Exception e) {
+				resp.put("error", e.getMessage());
+				return req.sendData(resp);
 			}
-			return req.sendData(resp);
 		}
 
 		if (path[0].equals(mTemplateRoot)) {
