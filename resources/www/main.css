@@ -29,7 +29,7 @@ textarea.input { height:auto; min-height:8em; resize:vertical; }
 }
 .btn.disabled { opacity:.5; }
 
-#message { position:absolute; bottom:0; left:0; right:0; text-align:center; }
+#message { position:absolute; z-index:2; bottom:0; left:0; right:0; text-align:center; }
 #message > * { margin-top:.5em; padding:.5em 1em; font-weight:700; font-size:1.25em; line-height:1.25; }
 .error { color:#A00; background:#F88; }
 .success { color:#0A0; background:#8A8; }

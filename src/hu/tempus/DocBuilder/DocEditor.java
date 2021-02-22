@@ -59,11 +59,7 @@ public class DocEditor {
 		Template tpl = choose(null, "Create/Open a file", "Open");
 		if (tpl == null)
 			return null;
-		DocEditor editor = FILES.get(tpl.id);
-		if (editor == null) {
-			editor = new DocEditor(tpl);
-		}
-		return editor;
+		return new DocEditor(tpl);
 	}
 
 	public String getId() {
@@ -147,6 +143,8 @@ public class DocEditor {
 	synchronized public void buildFile(File file) throws Exception {
 		OutputStream os = new FileOutputStream(file, false);
 		for (Chunk chunk : mChunks) {
+			if (chunk.id == null)
+				continue;
 			os.write(chunk.value.getBytes("UTF-8"));
 		}
 		os.close();

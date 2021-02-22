@@ -361,7 +361,7 @@ for (var n in hist) {
 }
 
 var editor = new Editor(sel('#editor'), function (chunks, values) {
-	hist.undo.add({ id: editor.id, chunks: chunks });
+	hist.undo.add({ id: editor.id, chunks: chunks, values: values });
 	hist.redo.clear();
 	var tosave = [];
 	for (var cid in chunks) {
@@ -404,13 +404,23 @@ function undo(reverse) {
 	if (!data) return;
 	editor.render([]);
 	function h() {
-		var current = {}, cids = [];
+		var current = {}, next = {}, cids = [];
 		for (var cid in data.chunks) {
 			var c = editor.chunks[cid];
-			current[cid] = c;
+			if (c.value != data.values[cid]) {
+				current = false;
+			}
+			if (current !== false) current[cid] = c;
+			next[cid] = data.chunks[cid].value;
 			cids.push(cid);
 		}
-		hist[reverse ? 'undo' : 'redo'].add({ id: data.id, chunks: current });
+		if (current === false) {
+			hist[reverse ? 'redo' : 'undo'].add(data);
+			addMsg('Document changed outside, history action is disabled');
+			editor.render(cids);
+			return;
+		}
+		hist[reverse ? 'undo' : 'redo'].add({ id: data.id, chunks: current, values: next });
 		var tosave = [];
 		for (var cid in data.chunks) {
 			var d = data.chunks[cid];
