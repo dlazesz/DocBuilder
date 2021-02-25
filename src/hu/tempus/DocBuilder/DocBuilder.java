@@ -69,14 +69,11 @@ public class DocBuilder {
 			System.setOut(ps);
 
 			// Add Templates
-			try (DirectoryStream<Path> stream = Files
-					.newDirectoryStream(new File(config.getValue("templates", "templates")).toPath())) {
-				for (Path fp : stream) {
-					File file = fp.toFile();
-					if (file.getName().startsWith(".") || !file.getName().endsWith(".json")) {
-						continue;
-					}
-					DocEditor.addTemplate(file);
+
+			try {
+				for (File tpl : IOUtils.getFiles(config.getValue("templates", "templates"), "\\.json$")) {
+					System.out.println(tpl.toString());
+					DocEditor.addTemplate(tpl);
 				}
 			} catch (Exception e) {
 				e.printStackTrace(System.err);
