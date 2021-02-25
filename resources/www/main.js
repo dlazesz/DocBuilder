@@ -15,6 +15,17 @@ function evt(s, t, fn, dom) {
 		t.split(' ').forEach(function (e) { i.addEventListener(e, fn); });
 	}, dom);
 }
+function trg(s, e, dom) {
+	each(s, function (i) {
+		i.dispatchEvent(new Event(e, { bubbles: true }));
+	}, dom);
+}
+function escAttr(t) {
+	return ('' + t).replace('&', '&amp;').replace("'", '&apos;').replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;');
+}
+function unescAttr(t) {
+	return ('' + t).replace('&apos;', "'").replace('&quot;', '"').replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&');
+}
 function addMsg(message, cls) {
 	var m = document.createElement('div');
 	m.className = cls || 'error';
@@ -28,7 +39,7 @@ function delMsg() {
 function addConfirm(message, onconfirm) {
 	var m = document.createElement('div');
 	m.className = 'confirm';
-	m.innerHTML = message + '<a href="#" class="btn error yes">Yes</a> <a href="#" class="btn cancel">Cancel</a>';
+	m.innerHTML = message + '<a href="#" class="btn error yes">' + _('Yes') + '</a> <a href="#" class="btn cancel">' + _('Cancel') + '</a>';
 	m.addEventListener('click', function (e) {
 		var t = e.target;
 		if (!t || !t.matches('.yes,.cancel')) return;
@@ -68,7 +79,7 @@ function clean_ttip(t) {
 		if (i == t) return;
 		var t2 = find('.tooltip', i);
 		for (var j in t2) { if (t2[j] == t) return; }
-		setTimeout(function () { i.remove(); }, 50);
+		trg(i, 'close');
 	});
 	if (!sel('.tooltip.modal')) document.body.classList.remove('has-modal');
 }
@@ -83,8 +94,18 @@ document.addEventListener('click', function (e) {
 		e.preventDefault();
 	}
 	if (t.matches('a[href="#"]')) e.preventDefault();
-	if (t.matches('.tooltip .close')) t.closest('.tooltip').remove();
+	if (t.matches('.tooltip .close')) trg(t.closest('.tooltip'), 'close');
+	if (t.matches('.dropdown .input')) return;
 	clean_ttip(t.closest('.tooltip:not(.dropdown)'));
+});
+document.addEventListener('close', function (e) {
+	var t = e.target;
+	if (t && t.matches('.tooltip')) {
+		setTimeout(function () {
+			t.remove();
+			if (!sel('.tooltip.modal')) document.body.classList.remove('has-modal');
+		}, 50);
+	}
 });
 
 window.addEventListener('DOMContentLoaded', function () {
@@ -93,6 +114,14 @@ window.addEventListener('DOMContentLoaded', function () {
 	window.addEventListener('unload', function () {
 		navigator.sendBeacon('/del-session?id=' + _instanceId);
 	});
+});
+
+function _(text) {
+	return window.Locale && Locale[text] || text;
+}
+
+each('.locale', function (i) {
+	i.innerHTML = _(i.innerHTML.trim());
 });
 
 var Editor = function (dom, onchange) {
@@ -123,8 +152,8 @@ var Editor = function (dom, onchange) {
 	window.addEventListener('beforeunload', function (e) {
 		if (self.ischanged()) {
 			e.preventDefault();
-			e.returnValue = 'Unsaved changes!';
-			return 'Unsaved changes!';
+			e.returnValue = _('There are unsaved changes! Are you sure?');
+			return e.returnValue;
 		}
 	});
 }
@@ -201,7 +230,7 @@ Editor.prototype.load = function (data, store_filler, onsuccess) {
 			return;
 		}
 		self.render([0]);
-		addMsg('Document loaded', 'success');
+		addMsg(_('Document Loaded'), 'success');
 		if (onsuccess) onsuccess();
 	}
 	onload();
@@ -232,7 +261,7 @@ Editor.prototype.ischanged = function (onnotchanged) {
 	if (!changed) {
 		oncontinue();
 	} else {
-		addConfirm('There are unsaved changes! Are you sure?', oncontinue);
+		addConfirm(_('There are unsaved changes! Are you sure?'), oncontinue);
 	}
 }
 Editor.prototype.onchange = function (cids) {
@@ -374,7 +403,7 @@ var editor = new Editor(sel('#editor'), function (chunks, values) {
 function open(id, onsuccess) {
 	fetch('/open?id=' + encodeURIComponent(id || '')).then(r => r.json()).then(function (data) {
 		if (!data.success) {
-			addMsg(data.error || 'Unknown Error');
+			addMsg(data.error || _('Unknown Error'));
 			return;
 		}
 		editor.load(data, false, function () {
@@ -393,10 +422,10 @@ function save(chunks) {
 		body: JSON.stringify(chunks || editor.chunks)
 	}).then(r => r.json()).then(function (data) {
 		if (!data.success) {
-			addMsg(data.error || 'Unknown Error');
+			addMsg(data.error || _('Unknown Error'));
 			return;
 		}
-		addMsg('Document saved', 'success');
+		addMsg(_('Document Saved'), 'success');
 	});
 }
 function undo(reverse) {
@@ -416,7 +445,7 @@ function undo(reverse) {
 		}
 		if (current === false) {
 			hist[reverse ? 'redo' : 'undo'].add(data);
-			addMsg('Document changed outside, history action is disabled');
+			addMsg(_('Document changed outside, history action is disabled'));
 			editor.render(cids);
 			return;
 		}
