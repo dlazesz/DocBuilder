@@ -28,7 +28,7 @@ function decXml(t) {
 }
 function xmlToText(xml, decode) {
 	var t = xml.replace(/<[^>]+>/sg, ' ').trim();
-	return decode ? decXml(t) : t;
+	return decode ? decXml(t) : t.replace("'", '&apos;').replace('"', '&quot;');
 }
 function selToText(dom, s, decode) {
 	return xmlToText(sel(s, dom).innerHTML, decode);
@@ -322,6 +322,7 @@ Editor.prototype.render = function (cids) {
 Editor.prototype.renderChunk = function (cid) {
 	cid = parseInt(cid);
 	var c = this.chunks[cid];
+	if (!c) return null;
 	var e = Editor.getType(c.name).render(c, cid);
 	if (e) e.dataset.cid = cid;
 	return e;
