@@ -5,6 +5,7 @@ Locale['Sticks Right'] = 'Jobbra ragad';
 Locale['Does Not Stick'] = 'Nem ragad';
 
 Locale['Save'] = 'Elment';
+Locale['Re-Analyze'] = 'Új analízis';
 Locale['Select Ana.'] = 'Analízis választása';
 Locale['Fix Token'] = 'Token javítása';
 Locale['Join Token...'] = 'Token összevon...';
@@ -328,7 +329,7 @@ document.addEventListener('click', function (e) {
 			+ '<td><input class="input" type="text" value="' + (ana ? selToText(ana, 'simple') : '') + '"></td>'
 			+ '<td><a href="#" data-wid="' + wid + '" class="btn selAna ' + (ana ? 'selected' : '') + '">✓</a></td>'
 		html += '</table>';
-		html += '<div class="center">' + getLink(wid, 'btn ana save', 'Save') + '</div>';
+		html += '<div class="center">' + getLink(wid, 'btn ana fetch', 'Re-Analyze') + getLink(wid, 'btn ana save', 'Save') + '</div>';
 		var t = ttip(sel('.cfg', s), e, true);
 		t.innerHTML += html;
 		return;
@@ -364,6 +365,37 @@ document.addEventListener('click', function (e) {
 		morph.setAttribute('check', 'True');
 		savePar([cid]);
 		return;
+	}
+	if (t.matches('.fetch.ana')) {
+		var formData = new FormData();
+		formData.append('file', new Blob(['form\n' + sel('token', xw).textContent + '\n'], { type: 'text/plain' }), 'input.txt');
+		fetch('/proxy?u=' + encodeURIComponent('http://emtsv.elte-dh.hu:5000/morph'), {
+			method: 'POST',
+			body: formData
+		}).then(r => r.text()).then(function (data) {
+			data = data.replace(/^[^\r\n]*[\r\n]+[^\t]*\t/, '');
+			data = JSON.parse(data);
+			var morph = sel('morph', xw);
+			each('ana', function (i) { delNode(i); }, morph);
+			var tpl = sel('ana', x);
+			for (var d in data) {
+				d = data[d];
+				var ana = parseXml(tpl.outerHTML).documentElement;
+				ana.setAttribute('correct', 'False');
+				sel('lemma', ana).textContent = d.lemma;
+				sel('detailed', ana).textContent = d.readable;
+				sel('simple', ana).textContent = d.tag;
+				morph.appendChild(ana);
+				if (ana.previousSibling && ana.previousSibling.nodeName == '#text') {
+					morph.appendChild(ana.previousSibling);
+				}
+				if (tpl.previousSibling && tpl.previousSibling.nodeName == '#text') {
+					morph.insertBefore(x.createTextNode(tpl.previousSibling.textContent), ana);
+				}
+			}
+			morph.setAttribute('check', 'False');
+			savePar([cid]);
+		});
 	}
 
 	if (t.matches('.edit.token')) {
