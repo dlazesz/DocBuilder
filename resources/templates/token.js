@@ -5,15 +5,17 @@ Locale['Sticks Right'] = 'Jobbra ragad';
 Locale['Does Not Stick'] = 'Nem ragad';
 
 Locale['Save'] = 'Elment';
-Locale['Re-Analyze'] = 'Új analízis';
-Locale['Select Ana.'] = 'Analízis választása';
+Locale['Detailed'] = 'Részletes';
+Locale['Simple'] = 'Egyszerű';
+Locale['Re-Analyze'] = 'Új elemzés';
+Locale['Select Ana.'] = 'Elemzés választása';
 Locale['Fix Token'] = 'Token javítása';
 Locale['Join Token...'] = 'Token összevon...';
 Locale['Split Token...'] = 'Token szétszed...';
 Locale['Type: Word'] = 'Típus: Szó';
 Locale['Type: Punct'] = 'Típus: Punkt.';
 
-Locale['Select Sentinence...'] = 'Mondattípus...';
+Locale['Select Sentinence...'] = 'Érzelemtípus...';
 Locale['Move Sentence...'] = 'Mondat mozgat...';
 Locale['Join Sentence...'] = 'Mondat összevon...';
 Locale['Split Sentence...'] = 'Mondat szétszed...';
@@ -22,7 +24,7 @@ Locale['After'] = 'Utána';
 
 Locale['Invalid Action'] = 'Nem végrehajtható akció';
 
-PC_JOIN = {
+TOKEN_STICKY = {
 	'left': 'Sticks Left',
 	'right': 'Sticks Right',
 	'no': 'Does Not Stick'
@@ -58,7 +60,7 @@ var _annots = { changed: false };
 Editor.TYPES.p = {
 	remove: function (input, chunk) {
 		if (_annots.xml) {
-			each('w,pc', function (i) {
+			each('token', function (i) {
 				var id = i.getAttribute('xml:id');
 				if (!_annots.ref[id]) return;
 				for (var j in _annots.ref[id]) {
@@ -74,13 +76,15 @@ Editor.TYPES.p = {
 		return x ? x.documentElement.outerHTML : chunk.value;
 	},
 	render: function (chunk, cid) {
-		var h = '&nbsp;';
+		var pr = 0;
+		for (var cid2 in _active) pr = Math.max(pr, editor.chunks[cid2].id || 0);
+		var h = '';
 		for (var i in editor.hidden) {
 			i = editor.hidden[i];
 			if ((i.id || 0) > (editor.chunks[cid].id || 0)) break;
+			if ((i.id || 0) < pr) continue;
 			if (i.name == '.head') h = i.value;
 		}
-		sel('#header .ch_head').innerHTML = xmlToText(h);
 
 		var x = parseXml(chunk.value);
 		_active[parseInt(cid)] = x;
@@ -90,7 +94,7 @@ Editor.TYPES.p = {
 		} else {
 			ep.className = 'par';
 			if (_annots.xml) {
-				each('w,pc', function (i) {
+				each('token', function (i) {
 					var id = i.getAttribute('xml:id');
 					if (!_annots.ref[id]) return;
 					for (var j in _annots.ref[id]) {
@@ -104,6 +108,7 @@ Editor.TYPES.p = {
 				}, x);
 			}
 		}
+		if (h) ep.innerHTML = '<h4>' + h + '</h4>' + ep.innerHTML;
 		return ep;
 	},
 }
@@ -113,7 +118,7 @@ evt(editor.dom, 'change-hidden', function () {
 		var hid = editor.render_hidden[i];
 		var h = editor.hidden[hid];
 		if (h.name == '.header') {
-			var html = '<h4 class="ch_head"></h4>';
+			var html = '';
 			var x = parseXml(h.value);
 			html = '<h2>' + selToText(x, 'title') + '</h2>'
 				+ '<h3>' + selToText(x, 'author') + '</h3>' + html;
@@ -123,7 +128,7 @@ evt(editor.dom, 'change-hidden', function () {
 			_annots = { id: hid, xml: parseXml(h.value), list: [], ref: {}, changed: false }
 			each('annotation', function (i, ii) {
 				_annots.list.push(i);
-				each('w,pc', function (j) {
+				each('token', function (j) {
 					var t = j.getAttribute('target');
 					if (!_annots.ref[t]) _annots.ref[t] = {};
 					_annots.ref[t][ii] = (j.previousElementSibling ? 0 : 1) + (j.nextElementSibling ? 0 : 2);
@@ -135,18 +140,18 @@ evt(editor.dom, 'change-hidden', function () {
 });
 
 evt(editor.dom, 'load', function () {
-	sel('#header').innerHTML = '<h4 class="ch_head"></h4>';
+	sel('#header').innerHTML = '';
 	sel('#footer').innerHTML = '';
 });
 
-function getSelect(wid, cls, val, empty_opt, opts) {
+function getSelect(tid, cls, val, empty_opt, opts) {
 	var s = select(val, empty_opt, opts);
 	s.className += ' ' + cls;
-	if (wid) s.dataset.wid = wid;
+	if (tid) s.dataset.tid = tid;
 	return s.outerHTML;
 }
-function getLink(wid, cls, txt, tpl) {
-	return '<a href="#" class="' + cls + '"' + (wid ? ' data-wid="' + wid + '"' : '') + '>' + (tpl ? tpl.replace('@', _(txt)) : _(txt)) + '</a>';
+function getLink(tid, cls, txt, tpl) {
+	return '<a href="#" class="' + cls + '"' + (tid ? ' data-tid="' + tid + '"' : '') + '>' + (tpl ? tpl.replace('@', _(txt)) : _(txt)) + '</a>';
 }
 
 function getUID(xml, prefix, start) {
@@ -169,12 +174,12 @@ function parsePar(dom) {
 		es = document.createElement('div');
 		es.className = 's';
 		es.dataset.sid = si;
-		each('w,pc', function (w, wi) {
+		each('token', function (w, wi) {
 			ew = document.createElement('span');
 			var j = w.getAttribute('join') || '';
-			ew.className = 'w' + (w.nodeName != 'w' ? ' ' + w.nodeName : '') + (j.match('^(left|right)$') ? ' ' + j : '');
-			ew.dataset.wid = wi;
-			var tkn = sel('token', w);
+			ew.className = 't' + (j.match('^(left|right)$') ? ' ' + j : '');
+			ew.dataset.tid = wi;
+			var tkn = sel('form', w);
 			if (!tkn) return;
 			if (tkn.getAttribute('modified') == 'True') ew.className += ' modified';
 			var morph = sel('morph', w);
@@ -216,9 +221,9 @@ function updAnnot(from, to) {
 		if (!sel('[target="' + t1 + '"]', a) || t1 == i.getAttribute('target')) {
 			for (var t in to) {
 				t = to[t];
-				var d = _annots.xml.createElement(t.nodeName);
+				var d = _annots.xml.createElement('token');
 				d.setAttribute('target', t.getAttribute('xml:id'));
-				d.textContent = sel('token', t).textContent;
+				d.textContent = sel('form', t).textContent;
 				a.insertBefore(d, i);
 			}
 		}
@@ -240,109 +245,112 @@ document.addEventListener('click', function (e) {
 	var sid = parseInt(s.dataset.sid);
 	var xsl = find('s,l', x);
 	var xs = xsl[sid];
-	var wid = t.dataset.wid;
-	var xwl = find('w,pc', xs);
-	var xw = wid ? xwl[wid] : false;
+	var tid = t.dataset.tid;
+	var xtl = find('token', xs);
+	var xt = tid ? xtl[tid] : false;
 
 	// open tooltip
-	if (t.matches('.w, .cfg')) {
+	if (t.matches('.t, .cfg')) {
+		each('.par .active', function (i) { i.classList.remove('active'); });
 		var html = '';
-		if (xw) { //token
-			if (sel('morph', xw)) {
-				html += getLink(wid, 'edit ana', 'Select Ana.');
-			}
-			if (t.classList.contains('pc')) {
-				html += getSelect(wid, 'edit pc', xw.getAttribute('join') || '?', 'Sticks To...', PC_JOIN);
+		if (xt) { //token
+			t.classList.add('active');
+			if (sel('morph', xt)) {
+				html += getLink(tid, 'edit ana', 'Select Ana.');
 			}
 			if (_annots.xml) {
-				html += getSelect(wid, 'add annot', '', 'New Annotation...', ANNOT_TYPE);
+				html += getSelect(tid, 'add annot', '', 'New Annotation...', ANNOT_TYPE);
 				// annotations containing the token
 				var has = false;
 				var lst = {};
-				var items = _annots.ref[xw.getAttribute('xml:id')];
+				var items = _annots.ref[xt.getAttribute('xml:id')];
 				for (var i in items || {}) {
 					if (items[i] == 0) continue;
 					has = true;
 					lst[i] = xmlToText(_annots.list[i].innerHTML);
 				}
-				if (has) html += getSelect(wid, 'delfrom annot', '', 'Delete From Annotation...', lst);
+				if (has) html += getSelect(tid, 'delfrom annot', '', 'Delete From Annotation...', lst);
 				// annotations next to the token
 				has = false;
 				lst = {};
-				if (wid > 0) {
-					items = _annots.ref[xwl[parseInt(wid) - 1].getAttribute('xml:id')];
+				if (tid > 0) {
+					items = _annots.ref[xtl[parseInt(tid) - 1].getAttribute('xml:id')];
 					for (var i in items || {}) {
 						if ((items[i] & 2) == 0) continue;
 						has = true;
 						lst['L' + i] = xmlToText(_annots.list[i].innerHTML);
 					}
 				}
-				if (wid < xwl.length - 1) {
-					items = _annots.ref[xwl[parseInt(wid) + 1].getAttribute('xml:id')];
+				if (tid < xtl.length - 1) {
+					items = _annots.ref[xtl[parseInt(tid) + 1].getAttribute('xml:id')];
 					for (var i in items || {}) {
 						if ((items[i] & 1) == 0) continue;
 						has = true;
 						lst['F' + i] = xmlToText(_annots.list[i].innerHTML);
 					}
 				}
-				if (has) html += getSelect(wid, 'addto annot', '', 'Add To Annotation...', lst);
+				if (has) html += getSelect(tid, 'addto annot', '', 'Add To Annotation...', lst);
 			}
-			html += getLink(wid, 'edit token', 'Fix Token');
-			var tkn = selToText(xw, 'token', true);
+			html += getSelect(tid, 'edit sticky', xt.getAttribute('join') || '?', 'Sticks To...', TOKEN_STICKY);
+			var tkn = selToText(xt, 'form', true);
 			if (tkn.length > 1) {
 				var split = {};
 				for (var i = 1; i < tkn.length; ++i) {
 					split[i] = encXml(tkn.substr(0, i)) + ' | ' + encXml(tkn.substr(i));
 				}
-				html += getSelect(wid, 'split token', '', 'Split Token...', split);
+				html += getSelect(tid, 'split token', '', 'Split Token...', split);
 			}
-			html += getSelect(wid, 'edit tokentype', xw.nodeName, '', { w: 'Type: Word', pc: 'Type: Punct' });
-			html += getSelect(wid, 'join token', '', 'Join Token...', { '0': 'Before', '1': 'After' });
+			//html += getSelect(tid, 'edit tokentype', xt.nodeName, '', { w: 'Type: Word', pc: 'Type: Punct' });
+			html += getSelect(tid, 'join token', '', 'Join Token...', { '0': 'Before', '1': 'After' });
+			html += getLink(tid, 'edit token', 'Fix Token');
 		} else {
-			html += getSelect(wid, 'edit sent multiple', (xs.getAttribute('sent') || '').split(';'), 'Select Sentinence...', SENT_TYPE);
+			s.classList.add('active');
+			html += getSelect(tid, 'edit sent multiple', (xs.getAttribute('sent') || '').split(';'), 'Select Sentinence...', SENT_TYPE);
 		}
-		if (xw) {
-			html += getSelect(wid, 'split sent', '', 'Split Sentence...', { '0': 'Before', '1': 'After' });
+		if (xt) {
+			html += getSelect(tid, 'split sent', '', 'Split Sentence...', { '0': 'Before', '1': 'After' });
 		} else {
-			html += getSelect(wid, 'join sent', '', 'Join Sentence...', { '0': 'Before', '1': 'After' });
-			html += getSelect(wid, 'move sent', '', 'Move Sentence...', { '0': 'Before', '1': 'After' });
+			html += getSelect(tid, 'join sent', '', 'Join Sentence...', { '0': 'Before', '1': 'After' });
+			html += getSelect(tid, 'move sent', '', 'Move Sentence...', { '0': 'Before', '1': 'After' });
 		}
-		var t = ttip(t, e);
-		t.classList.add('dropdown');
-		t.innerHTML = html;
+
+		var tt = ttip(t);
+		tt.classList.add('dropdown');
+		tt.innerHTML = html;
 		return;
 	}
 
 	if (t.matches('.edit.ana')) {
 		var html = '';
-		html += '<h3 class="tkn">' + _('Token') + ': <strong>' + selToText(xw, 'token') + '</strong></h3>';
+		html += '<h3 class="tkn">' + _('Token') + ': <strong>' + selToText(xt, 'form') + '</strong></h3>';
 		html += '<table><tr><th>' + _('Lemma') + '</th><th>' + _('Detailed') + '</th><th>' + _('Simple') + '</th><th></th></tr>';
 		each('ana', function (i, ii) {
 			if (i.getAttribute('modified') == 'True') return;
 			html += '<tr><td>' + selToText(i, 'lemma') + '</td><td>' + selToText(i, 'detailed') + '</td><td>' + selToText(i, 'simple') + '</td>'
-				+ '<td><a href="#" data-wid="' + wid + '" data-ana="' + ii + '" class="btn selAna ' + (i.getAttribute('correct') == 'True' ? 'selected' : '') + '">✓</a></td>'
-		}, xw);
-		var ana = sel('ana[modified="True"]', xw);
+				+ '<td><a href="#" data-tid="' + tid + '" data-ana="' + ii + '" class="btn selAna ' + (i.getAttribute('correct') == 'True' ? 'selected' : '') + '">✓</a></td>'
+		}, xt);
+		var ana = sel('ana[modified="True"]', xt);
 		html += '<tr>'
 			+ '<td><input class="input" type="text" value="' + (ana ? selToText(ana, 'lemma') : '') + '"></td>'
 			+ '<td><input class="input" type="text" value="' + (ana ? selToText(ana, 'detailed') : '') + '"></td>'
 			+ '<td><input class="input" type="text" value="' + (ana ? selToText(ana, 'simple') : '') + '"></td>'
-			+ '<td><a href="#" data-wid="' + wid + '" class="btn selAna ' + (ana ? 'selected' : '') + '">✓</a></td>'
+			+ '<td><a href="#" data-tid="' + tid + '" class="btn selAna ' + (ana ? 'selected' : '') + '">✓</a></td>'
 		html += '</table>';
-		html += '<div class="center">' + getLink(wid, 'btn ana fetch', 'Re-Analyze') + getLink(wid, 'btn ana save', 'Save') + '</div>';
-		var t = ttip(sel('.cfg', s), e, true);
-		t.innerHTML += html;
+		html += '<div class="center">' + getLink(tid, 'btn ana fetch', 'Re-Analyze') + getLink(tid, 'btn ana save', 'Save') + '</div>';
+		var tt = ttip(sel('.cfg', s), e, true);
+		tt.innerHTML += html;
+		evt('table input', 'focus', function () { trg('.btn', 'click', this.closest('tr')); }, tt)
 		return;
 	}
 	if (t.matches('.btn.selAna')) {
-		each('ana', function (i) { i.setAttribute('correct', 'False') }, xw);
+		each('ana', function (i) { i.setAttribute('correct', 'False') }, xt);
 		each('.btn.selAna', function (i) { i.classList.remove('selected') }, t.closest('table'));
 		t.classList.add('selected');
-		if (t.dataset.ana) find('ana', xw)[t.dataset.ana].setAttribute('correct', 'True');
+		if (t.dataset.ana) find('ana', xt)[t.dataset.ana].setAttribute('correct', 'True');
 		return;
 	}
 	if (t.matches('.save.ana')) {
-		var morph = sel('morph', xw);
+		var morph = sel('morph', xt);
 		var mod = sel('ana[modified="True"]', morph);
 		if (mod) delNode(mod);
 		if (!sel('ana[correct="True"]', morph)) {
@@ -368,14 +376,14 @@ document.addEventListener('click', function (e) {
 	}
 	if (t.matches('.fetch.ana')) {
 		var formData = new FormData();
-		formData.append('file', new Blob(['form\n' + sel('token', xw).textContent + '\n'], { type: 'text/plain' }), 'input.txt');
+		formData.append('file', new Blob(['form\n' + sel('form', xt).textContent + '\n'], { type: 'text/plain' }), 'input.txt');
 		fetch('/proxy?u=' + encodeURIComponent('http://emtsv.elte-dh.hu:5000/morph'), {
 			method: 'POST',
 			body: formData
 		}).then(r => r.text()).then(function (data) {
 			data = data.replace(/^[^\r\n]*[\r\n]+[^\t]*\t/, '');
 			data = JSON.parse(data);
-			var morph = sel('morph', xw);
+			var morph = sel('morph', xt);
 			each('ana', function (i) { delNode(i); }, morph);
 			var tpl = sel('ana', x);
 			for (var d in data) {
@@ -400,18 +408,18 @@ document.addEventListener('click', function (e) {
 
 	if (t.matches('.edit.token')) {
 		var html = '';
-		html += '<input type="text" class="input" value="' + selToText(xw, 'token') + '">';
-		html += '<div class="center">' + getLink(wid, 'btn token save', 'Save') + '</div>';
-		var t = ttip(sel('.cfg', s), e, true);
-		t.innerHTML += html;
+		html += '<input type="text" class="input" value="' + selToText(xt, 'form') + '">';
+		html += '<div class="center">' + getLink(tid, 'btn token save', 'Save') + '</div>';
+		var tt = ttip(sel('.cfg', s), e, true);
+		tt.innerHTML += html;
 		return;
 	}
 	if (t.matches('.save.token')) {
-		var tkn = sel('token', xw);
+		var tkn = sel('form', xt);
 		var val = sel('input', t.closest('.tooltip')).value;
 		if (tkn.textContent == val) return;
 		tkn.setAttribute('modified', "True");
-		var morph = sel('morph', xw);
+		var morph = sel('morph', xt);
 		if (morph) { morph.setAttribute('check', 'False'); morph.innerHTML = ''; }
 		tkn.textContent = val;
 		savePar([cid]);
@@ -433,9 +441,9 @@ document.addEventListener('change', function (e) {
 	var sid = parseInt(s.dataset.sid);
 	var xsl = find('s,l', x);
 	var xs = xsl[sid];
-	var wid = t.dataset.wid;
-	var xwl = find('w,pc', xs);
-	var xw = wid ? xwl[wid] : false;
+	var tid = t.dataset.tid;
+	var xtl = find('token', xs);
+	var xt = tid ? xtl[tid] : false;
 
 	// sentence stuff
 
@@ -487,13 +495,13 @@ document.addEventListener('change', function (e) {
 
 	if (t.matches('.split.sent')) {
 		if (t.value == '') return;
-		var xw2 = xwl[parseInt(wid) + (t.value == '0' ? 0 : 1)];
-		if (!xw2 || xw2 == xwl[0]) {
+		var xt2 = xtl[parseInt(tid) + (t.value == '0' ? 0 : 1)];
+		if (!xt2 || xt2 == xtl[0]) {
 			addMsg(_('Invalid Action'));
 			return;
 		}
 		var indent = xs.previousSibling && xs.previousSibling.nodeName == '#text' ? xs.previousSibling.textContent : '';
-		xs.insertBefore(x.createElement('split'), xw2);
+		xs.insertBefore(x.createElement('split'), xt2);
 		var xe = x.documentElement;
 		var id = xs.getAttribute('xml:id').split('_')[0];
 		xe.innerHTML = xe.innerHTML.replace(/([ \t\r\n]*)<split[^>]*>/
@@ -527,8 +535,25 @@ document.addEventListener('change', function (e) {
 
 	// token stuff
 
-	if (t.matches('.edit.pc')) {
-		xw.setAttribute('join', t.value);
+	if (t.matches('.edit.sticky')) {
+		tid = parseInt(tid);
+		switch (xt.getAttribute('join')) {
+			case 'left':
+				if (tid > 0) xtl[tid - 1].setAttribute('join', 'no');
+				break;
+			case 'right':
+				if (tid < xtl.length - 1) xtl[tid + 1].setAttribute('join', 'no');
+				break;
+		}
+		xt.setAttribute('join', t.value);
+		switch (t.value) {
+			case 'left':
+				if (tid > 0) xtl[tid - 1].setAttribute('join', 'right');
+				break;
+			case 'right':
+				if (tid < xtl.length - 1) xtl[tid + 1].setAttribute('join', 'left');
+				break;
+		}
 		savePar([cid]);
 		return;
 	}
@@ -536,17 +561,14 @@ document.addEventListener('change', function (e) {
 	if (t.matches('.join.token')) {
 		if (t.value == '') return;
 		var off = t.value == '0' ? -1 : 1;
-		var xw2 = xwl[parseInt(wid) + off];
-		if (!xw2) {
+		var xt2 = xtl[parseInt(tid) + off];
+		if (!xt2) {
 			addMsg(_('Invalid Action'));
 			return;
 		}
-		var u = off > 0 ? [xw, xw2] : [xw2, xw];
-		var xml = '<token modified="True">' + selToText(u[0], 'token') + selToText(u[1], 'token') + '</token>';
+		var u = off > 0 ? [xt, xt2] : [xt2, xt];
+		var xml = '<form modified="True">' + selToText(u[0], 'form') + selToText(u[1], 'form') + '</token>';
 		if (sel('morph', u[0]) || sel('morph', u[1])) xml += '<morph check="False"/>';
-		if (u[0].nodeName == 'pc' && u[1].nodeName == 'w') { // in this case keep the second element
-			u = [u[1], u[0]];
-		}
 		var id2 = u[1].getAttribute('xml:id').split('_');
 		delNode(u[1]);
 		u[0].innerHTML = xml;
@@ -566,50 +588,50 @@ document.addEventListener('change', function (e) {
 
 	if (t.matches('.split.token')) {
 		if (t.value == '') return;
-		var tkn = sel('token', xw);
+		var tkn = sel('form', xt);
 		tkn.setAttribute('modified', 'True');
-		var morph = sel('morph', xw);
+		var morph = sel('morph', xt);
 		if (morph) {
 			morph.setAttribute('check', 'False');
 			morph.innerHTML = '';
 		}
-		var xw2 = parseXml(xw.outerHTML).documentElement;
-		sel('token', xw2).textContent = tkn.innerHTML.substr(t.value);
-		var id1 = xw.getAttribute('xml:id');
-		if (id1) xw2.setAttribute('xml:id', getUID(x, id1.split('_')[0]));
+		var xt2 = parseXml(xt.outerHTML).documentElement;
+		sel('form', xt2).textContent = tkn.innerHTML.substr(t.value);
+		var id1 = xt.getAttribute('xml:id');
+		if (id1) xt2.setAttribute('xml:id', getUID(x, id1.split('_')[0]));
 		tkn.textContent = tkn.textContent.substr(0, t.value);
-		xs.insertBefore(xw2, xw.nextSibling);
-		if (xw.previousSibling && xw.previousSibling.nodeName == '#text') {
-			xs.insertBefore(x.createTextNode(xw.previousSibling.textContent), xw.nextSibling);
+		xs.insertBefore(xt2, xt.nextSibling);
+		if (xt.previousSibling && xt.previousSibling.nodeName == '#text') {
+			xs.insertBefore(x.createTextNode(xt.previousSibling.textContent), xt.nextSibling);
 		}
-		updAnnot([id1], [xw, xw2]);
+		updAnnot([id1], [xt, xt2]);
 		savePar([cid]);
 		return;
 	}
 
-	if (t.matches('.edit.tokentype')) {
-		if (t.value == '' || t.value == xw.nodeName) return;
-		var xw2 = x.createElement(t.value);
-		xw2.innerHTML = xw.innerHTML;
-		sel('token', xw2).setAttribute('modified', 'True');
-		var id = x.documentElement.getAttribute('xml:id');
-		if (id) {
-			xw2.setAttribute('xml:id', getUID(x, t.value + id));
-			updAnnot([xw.getAttribute('xml:id')], [xw2]);
-		}
-		xs.insertBefore(xw2, xw);
-		xw.remove();
-		savePar([cid]);
-		return;
-	}
+	// if (t.matches('.edit.tokentype')) {
+	// 	if (t.value == '' || t.value == xt.nodeName) return;
+	// 	var xt2 = x.createElement(t.value);
+	// 	xt2.innerHTML = xt.innerHTML;
+	// 	sel('form', xt2).setAttribute('modified', 'True');
+	// 	var id = x.documentElement.getAttribute('xml:id');
+	// 	if (id) {
+	// 		xt2.setAttribute('xml:id', getUID(x, t.value + id));
+	// 		updAnnot([xt.getAttribute('xml:id')], [xt2]);
+	// 	}
+	// 	xs.insertBefore(xt2, xt);
+	// 	xt.remove();
+	// 	savePar([cid]);
+	// 	return;
+	// }
 
 	// annotation stuff
 
 	if (t.matches('.add.annot')) {
 		if (t.value == '' || !_annots.xml) return;
-		var i = _annots.xml.createElement(xw.nodeName);
-		i.setAttribute('target', xw.getAttribute('xml:id'));
-		i.textContent = sel('token', xw).textContent;
+		var i = _annots.xml.createElement(xt.nodeName);
+		i.setAttribute('target', xt.getAttribute('xml:id'));
+		i.textContent = sel('form', xt).textContent;
 		var a = _annots.xml.createElement('annotation');
 		a.setAttribute('entity', t.value);
 		a.appendChild(i);
@@ -623,9 +645,9 @@ document.addEventListener('change', function (e) {
 	if (t.matches('.addto.annot')) {
 		if (t.value == '' || !_annots.xml) return;
 		var an = _annots.list[t.value.substr(1)];
-		var i = _annots.xml.createElement(xw.nodeName);
-		i.setAttribute('target', xw.getAttribute('xml:id'));
-		i.textContent = sel('token', xw).textContent;
+		var i = _annots.xml.createElement(xt.nodeName);
+		i.setAttribute('target', xt.getAttribute('xml:id'));
+		i.textContent = sel('form', xt).textContent;
 		an.insertBefore(i, t.value[0] == 'F' ? an.children[0] : null);
 		_annots.changed = true;
 		savePar();
@@ -635,7 +657,7 @@ document.addEventListener('change', function (e) {
 	if (t.matches('.delfrom.annot')) {
 		if (t.value == '' || !_annots.xml) return;
 		var an = _annots.list[t.value];
-		sel('[target="' + xw.getAttribute('xml:id') + '"]', an).remove();
+		sel('[target="' + xt.getAttribute('xml:id') + '"]', an).remove();
 		if (!sel('[target]', an)) an.remove();
 		_annots.changed = true;
 		savePar();
