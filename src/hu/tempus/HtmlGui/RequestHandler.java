@@ -285,25 +285,29 @@ public class RequestHandler implements HttpHandler {
 			long mtime = r.modTime;
 			addHeader("Last-Modified", HDATE.format(new Date(mtime)));
 
-			String ifmod = request.getRequestHeaders().getFirst("If-Modified-Since");
+			boolean not_mod = false;
 			try {
-				if (ifmod != null) {
-					if (HDATE.parse(ifmod).getTime() >= mtime) {
-						request.sendResponseHeaders(304, -1);
-						request.getResponseBody().close();
-						return true;
+				String ifmod = request.getRequestHeaders().getFirst("If-Modified-Since");
+				if ((ifmod != null) && (HDATE.parse(ifmod).getTime() >= mtime)) {
+					not_mod = true;
+				}
+			} catch (Exception e) {
+				Logger.debug(e);
+			}
+			try {
+				if (not_mod) {
+					request.sendResponseHeaders(304, -1);
+					request.getResponseBody().close();
+				} else {
+					request.sendResponseHeaders(len < r.fileSize ? 206 : 200, len);
+					try (OutputStream os = request.getResponseBody()) {
+						IOUtils.redirect(r, os, off, len);
 					}
 				}
 			} catch (Exception e) {
+				Logger.debug(e);
 			}
 
-			request.sendResponseHeaders(len < r.fileSize ? 206 : 200, len);
-
-			try (OutputStream os = request.getResponseBody()) {
-				IOUtils.redirect(r, os, off, len);
-			} catch (IOException e) {
-				// we don't care about the client aborting the connection
-			}
 			r.close();
 			return true;
 		}
