@@ -33,11 +33,15 @@ function xmlToText(xml, decode) {
 function selToText(dom, s, decode) {
 	return xmlToText(sel(s, dom).innerHTML, decode);
 }
-function addMsg(message, cls) {
+function addMsg(message, cls, target) {
 	var m = document.createElement('div');
-	m.className = cls || 'error';
+	m.className = (cls || 'error') + ' msg';
 	m.innerHTML = message;
-	sel('#message').appendChild(m);
+	if (target && target.classList.contains('input')) {
+		target.parentNode.insertBefore(m, target.nextSibling);
+	} else {
+		(target || sel('#message')).appendChild(m);
+	}
 	setTimeout(function () { m.remove() }, 5000);
 }
 function delMsg() {
@@ -56,16 +60,26 @@ function addConfirm(message, onconfirm) {
 	sel('body').appendChild(m);
 }
 function ttip(dom, event, modal) {
-	var c = dom.offsetParent;
-	var o = event ? [event.offsetY, event.offsetX] : [0, 0];
-	o[0] += dom.offsetTop;
-	o[1] += dom.offsetLeft;
 	var t = document.createElement('div');
 	t.className = 'tooltip' + (modal ? ' modal' : '');
-	if (o[0] > c.clientHeight / 2) {
-		t.style.bottom = (c.clientHeight - o[0]) + 'px';
+	dom.parentNode.insertBefore(t, dom.nextSibling);
+	if (modal) document.body.classList.add('has-modal');
+	clean_ttip(t);
+
+	var c = t.offsetParent || document.body;
+	var o = event ? [event.offsetY, event.offsetX] : [0, 0];
+	var tt = event ? event.target : dom;
+	while (tt) {
+		o[0] += tt.offsetTop;
+		o[1] += tt.offsetLeft;
+		if (tt.offsetParent == c) break;
+		tt = tt.parentNode;
+	}
+
+	if (event ? (event.pageY - window.scrollY > window.innerHeight / 2) : (o[0] > c.clientHeight / 2)) {
+		t.style.bottom = (c.clientHeight - o[0] + 5) + 'px';
 	} else {
-		t.style.top = (o[0] + (event ? 0 : dom.offsetHeight)) + 'px';
+		t.style.top = (o[0] + (event ? 10 : dom.offsetHeight)) + 'px';
 	}
 	if (!modal) {
 		if (o[1] < c.clientWidth / 2) {
@@ -76,9 +90,6 @@ function ttip(dom, event, modal) {
 	} else {
 		t.innerHTML = '<a href="#" class="btn close">✕</a>';
 	}
-	clean_ttip(t.closest('.tooltip'));
-	if (modal) document.body.classList.add('has-modal');
-	dom.parentNode.insertBefore(t, dom.nextSibling);
 	return t;
 }
 function clean_ttip(t) {
@@ -90,14 +101,15 @@ function clean_ttip(t) {
 	});
 	if (!sel('.tooltip.modal')) document.body.classList.remove('has-modal');
 }
-function select(val, empty_opt, opts) {
+function select(val, empty_opt, opts, multiple) {
 	var s = document.createElement('div');
-	s.className = 'select';
+	s.className = 'select' + (multiple ? ' multiple' : '');
+	s.dataset.value = multiple ? JSON.stringify(val) : val;
 	for (var o in opts) {
 		var a = document.createElement('a');
 		a.href = '#';
 		a.dataset.value = o;
-		if (typeof (val) == 'object' ? val.indexOf(o) != -1 : val == o) a.className = 'selected';
+		if (typeof (val) == 'object' ? (val.indexOf(o) != -1) : (val == o)) a.className = 'selected';
 		a.textContent = _(opts[o]);
 		s.appendChild(a);
 	}
@@ -133,7 +145,7 @@ document.addEventListener('click', function (e) {
 			}
 			var v = [];
 			each('.selected', function (i) { if (i.dataset.value) v.push(i.dataset.value); }, s);
-			s.value = v.join(';');
+			s.dataset.value = s.classList.contains('multiple') ? JSON.stringify(v) : (v[0] || '');
 			if (s.classList.contains('multiple') && !t.classList.contains('no-value')) return;
 			trg(s, 'change');
 			s.classList.remove('open');
@@ -555,7 +567,7 @@ evt('.ed-open', 'click', function () {
 	editor.ischanged(function () { open(); });
 });
 evt('.ed-recent', 'click', function (e) {
-	var t = ttip(e.target);
+	var t = ttip(e.target, e);
 	hist.recent.walk(function (data, id) {
 		var a = document.createElement('a');
 		a.setAttribute('href', '#');
