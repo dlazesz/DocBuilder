@@ -2,6 +2,7 @@ Locale['EMPTY'] = 'ÜRES';
 Locale['Sticks To...'] = 'Ragadás...';
 Locale['Sticks Left'] = 'Balra ragad';
 Locale['Sticks Right'] = 'Jobbra ragad';
+Locale['Sticks Both'] = 'Mindkettőre ragad';
 Locale['Does Not Stick'] = 'Nem ragad';
 
 Locale['Save'] = 'Elment';
@@ -9,7 +10,12 @@ Locale['Detailed'] = 'Részletes';
 Locale['Simple'] = 'Egyszerű';
 Locale['Re-Analyze'] = 'Új elemzés';
 Locale['Select Ana.'] = 'Elemzés választása';
+Locale['No Selected Analyzation'] = 'Nincs kiválasztva elemzés';
 Locale['Fix Token'] = 'Token javítása';
+Locale['Delete Token'] = 'Token törlése';
+Locale['Insert Token'] = 'Token beszúrása';
+Locale['Insert Before <b>%word%</b>'] = 'Beszúrás <b>%word%</b> elé';
+Locale['Insert After <b>%word%</b>'] = 'Beszúrás <b>%word%</b> után';
 Locale['Join Token...'] = 'Token összevon...';
 Locale['Split Token...'] = 'Token szétszed...';
 Locale['Type: Word'] = 'Típus: Szó';
@@ -23,10 +29,12 @@ Locale['Before'] = 'Előtte';
 Locale['After'] = 'Utána';
 
 Locale['Invalid Action'] = 'Nem végrehajtható akció';
+Locale['Invalid Format'] = 'Hibás formátum';
 
 TOKEN_STICKY = {
 	'left': 'Sticks Left',
 	'right': 'Sticks Right',
+	'both': 'Sticks Both',
 	'no': 'Does Not Stick'
 }
 
@@ -142,10 +150,18 @@ evt(editor.dom, 'change-hidden', function () {
 evt(editor.dom, 'load', function () {
 	sel('#header').innerHTML = '';
 	sel('#footer').innerHTML = '';
+
+	if (!sel('header .btn-view')) {
+		var a = document.createElement('a');
+		a.href = '#';
+		a.className = 'btn btn-view';
+		a.innerHTML = _(localStorage.tableview ? 'Normal View' : 'Table View');
+		sel('header').appendChild(a);
+	}
 });
 
-function getSelect(tid, cls, val, empty_opt, opts) {
-	var s = select(val, empty_opt, opts);
+function getSelect(tid, cls, val, empty_opt, opts, multiple) {
+	var s = select(val, empty_opt, opts, multiple);
 	s.className += ' ' + cls;
 	if (tid) s.dataset.tid = tid;
 	return s.outerHTML;
@@ -169,28 +185,71 @@ function delNode(s) {
 }
 
 function parsePar(dom) {
+	var tv = localStorage.tableview;
 	var ep = document.createElement('div');
+	if (tv) ep.className = 'table';
 	each('s,l', function (s, si) {
-		es = document.createElement('div');
+		var es = document.createElement(tv ? 'table' : 'div');
 		es.className = 's';
 		es.dataset.sid = si;
+		if (tv) {
+			es.innerHTML = '<tr><th>' + _('Token') + '</th><th>' + _('Lemma') + '</th><th>' + _('Detailed') + '</th><th>' + _('Simple') + '</th><th></th></tr>'
+		}
 		each('token', function (w, wi) {
-			ew = document.createElement('span');
+			var ew = document.createElement(tv ? 'tr' : 'span');
 			var j = w.getAttribute('join') || '';
-			ew.className = 't' + (j.match('^(left|right)$') ? ' ' + j : '');
+			ew.className = 't';
+			if (['left', 'both'].indexOf(j) != -1) ew.className += ' left';
+			if (['right', 'both'].indexOf(j) != -1) ew.className += ' right';
 			ew.dataset.tid = wi;
 			var tkn = sel('form', w);
 			if (!tkn) return;
 			if (tkn.getAttribute('modified') == 'True') ew.className += ' modified';
 			var morph = sel('morph', w);
-			if (morph && morph.getAttribute('check') == 'False') ew.className += ' unchecked';
-			ew.innerHTML = tkn.innerHTML || '&nbsp;';
+			if (morph && morph.getAttribute('check') == 'False') {
+				ew.className += ' unchecked';
+				if (find('ana', morph).length == 1) ew.className += ' single';
+			} else {
+				morph = false;
+			}
+			if (tv) {
+				var et = document.createElement('td');
+				et.innerHTML = tkn.innerHTML || '&nbsp;';
+				et.className = 'as-parent';
+				ew.appendChild(et);
+				var ana = sel('ana[correct="True"]', w);
+				et = document.createElement('td');
+				et.className = 'as-parent';
+				et.innerHTML = ana ? sel('lemma', ana).textContent : '&nbsp;';
+				ew.appendChild(et);
+				et = document.createElement('td');
+				et.className = 'as-parent';
+				et.innerHTML = ana ? sel('detailed', ana).textContent : '&nbsp;';
+				ew.appendChild(et);
+				et = document.createElement('td');
+				et.className = 'as-parent';
+				et.innerHTML = ana ? sel('simple', ana).textContent : '&nbsp;';
+				ew.appendChild(et);
+				et = document.createElement('td');
+				if (morph && ana) {
+					et.className = 'selAna';
+					et.dataset.tid = wi;
+					et.dataset.ana = 'default';
+					et.innerHTML = '✓';
+				} else {
+					et.className = 'as-parent';
+					et.innerHTML = '&nbsp;';
+				}
+				ew.appendChild(et);
+			} else {
+				ew.innerHTML = tkn.innerHTML || '&nbsp;';
+			}
 			es.appendChild(ew);
 		}, s);
-		ew = document.createElement('span');
+		var ew = document.createElement(tv ? 'tr' : 'span');
 		ew.className = 'cfg';
 		if (!s.getAttribute('sent')) ew.className += ' unchecked';
-		ew.innerHTML = "⚙";
+		ew.innerHTML = tv ? '<td colspan="5" class="as-parent">⚙</td>' : '⚙';
 		es.appendChild(ew);
 		ep.appendChild(es);
 	}, dom);
@@ -213,8 +272,6 @@ function savePar(cids) {
 function updAnnot(from, to) {
 	if (!_annots.xml) return;
 	var t1 = to[0].getAttribute('xml:id');
-	console.log(from);
-	console.log(to);
 	each('[target="' + from.join('"],[target="') + '"]', function (i) {
 		_annots.changed = true;
 		var a = i.closest('annotation');
@@ -229,15 +286,67 @@ function updAnnot(from, to) {
 		}
 		i.remove();
 	}, _annots.xml);
-	console.log(_annots);
+}
+
+function updJoin(tid, xtl) {
+	var l = tid > 0 && ['right', 'both'].indexOf(xtl[tid - 1].getAttribute('join')) != -1;
+	var r = tid < xtl.length - 1 && ['left', 'both'].indexOf(xtl[tid + 1].getAttribute('join')) != -1;
+	xtl[tid].setAttribute('join', l ? (r ? 'both' : 'left') : (r ? 'right' : 'no'));
+}
+
+function updAna(tokens, cid) {
+	token = tokens.shift();
+	var formData = new FormData();
+	formData.append('file', new Blob(['form\n' + sel('form', token).textContent + '\n'], { type: 'text/plain' }), 'input.txt');
+	fetch('/proxy?u=' + encodeURIComponent('http://emtsv.elte-dh.hu:5000/morph'), {
+		method: 'POST',
+		body: formData
+	}).then(r => r.text()).then(function (data) {
+		data = data.replace(/^[^\r\n]*[\r\n]+[^\t]*\t/, '');
+		data = JSON.parse(data);
+		var morph = sel('morph', token);
+		each('ana', function (i) { delNode(i); }, morph);
+		var tpl = sel('ana', _active[cid]);
+		for (var d in data) {
+			d = data[d];
+			var ana = parseXml(tpl.outerHTML).documentElement;
+			ana.setAttribute('correct', 'False');
+			sel('lemma', ana).textContent = d.lemma;
+			sel('detailed', ana).textContent = d.readable;
+			sel('simple', ana).textContent = d.tag;
+			morph.appendChild(ana);
+			if (ana.previousSibling && ana.previousSibling.nodeName == '#text') {
+				morph.appendChild(ana.previousSibling);
+			}
+			if (tpl.previousSibling && tpl.previousSibling.nodeName == '#text') {
+				morph.insertBefore(_active[cid].createTextNode(tpl.previousSibling.textContent), ana);
+			}
+		}
+		morph.setAttribute('check', 'False');
+		if (tokens.length) {
+			updAna(tokens, cid);
+		} else {
+			savePar([cid]);
+		}
+	});
 }
 
 document.addEventListener('click', function (e) {
 	var t = e.target;
 	if (!t) return;
 
+	// change view
+	if (t.matches('.btn-view')) {
+		localStorage.tableview = localStorage.tableview ? '' : '1';
+		sel('header .btn-view').innerHTML = _(localStorage.tableview ? 'Normal View' : 'Table View');
+		editor.render(editor.getVisible());
+		return;
+	}
+
 	var c = t.closest('.par');
 	if (!c) return;
+
+	if (localStorage.tableview && t.classList.contains('as-parent')) t = t.parentNode;
 
 	var cid = parseInt(c.dataset.cid);
 	var x = _active[cid];
@@ -303,9 +412,11 @@ document.addEventListener('click', function (e) {
 			//html += getSelect(tid, 'edit tokentype', xt.nodeName, '', { w: 'Type: Word', pc: 'Type: Punct' });
 			html += getSelect(tid, 'join token', '', 'Join Token...', { '0': 'Before', '1': 'After' });
 			html += getLink(tid, 'edit token', 'Fix Token');
+			html += getLink(tid, 'ins token', 'Insert Token');
+			html += getLink(tid, 'del token', 'Delete Token');
 		} else {
 			s.classList.add('active');
-			html += getSelect(tid, 'edit sent multiple', (xs.getAttribute('sent') || '').split(';'), 'Select Sentinence...', SENT_TYPE);
+			html += getSelect(tid, 'edit sent', (xs.getAttribute('sent') || '').split(';'), 'Select Sentinence...', SENT_TYPE, true);
 		}
 		if (xt) {
 			html += getSelect(tid, 'split sent', '', 'Split Sentence...', { '0': 'Before', '1': 'After' });
@@ -314,7 +425,7 @@ document.addEventListener('click', function (e) {
 			html += getSelect(tid, 'move sent', '', 'Move Sentence...', { '0': 'Before', '1': 'After' });
 		}
 
-		var tt = ttip(t);
+		var tt = ttip(t, e);
 		tt.classList.add('dropdown');
 		tt.innerHTML = html;
 		return;
@@ -342,11 +453,17 @@ document.addEventListener('click', function (e) {
 		evt('table input', 'focus', function () { trg('.btn', 'click', this.closest('tr')); }, tt)
 		return;
 	}
-	if (t.matches('.btn.selAna')) {
-		each('ana', function (i) { i.setAttribute('correct', 'False') }, xt);
-		each('.btn.selAna', function (i) { i.classList.remove('selected') }, t.closest('table'));
-		t.classList.add('selected');
-		if (t.dataset.ana) find('ana', xt)[t.dataset.ana].setAttribute('correct', 'True');
+	if (t.matches('.selAna')) {
+		if (t.dataset.ana === 'default') {
+			var morph = sel('morph', xt);
+			morph.setAttribute('check', 'True');
+			savePar([cid]);
+		} else {
+			each('ana', function (i) { i.setAttribute('correct', 'False') }, xt);
+			each('.btn.selAna', function (i) { i.classList.remove('selected') }, t.closest('table'));
+			t.classList.add('selected');
+			if (t.dataset.ana) find('ana', xt)[t.dataset.ana].setAttribute('correct', 'True');
+		}
 		return;
 	}
 	if (t.matches('.save.ana')) {
@@ -354,14 +471,36 @@ document.addEventListener('click', function (e) {
 		var mod = sel('ana[modified="True"]', morph);
 		if (mod) delNode(mod);
 		if (!sel('ana[correct="True"]', morph)) {
-			var vals = find('input', sel('.selAna.selected', t.closest('.tooltip')).closest('tr'));
+			var input = sel('.selAna.selected', t.closest('.tooltip'));
+			if (!input) {
+				addMsg(_('No Selected Analyzation'), null, t.closest('.tooltip'));
+				return;
+			}
+			input = find('input', input.closest('tr'));
+			var vals = [
+				input[0].value.trim(),
+				input[1].value.trim(),
+				input[2].value.trim()
+			];
+			if (!vals[0].length || vals[0].indexOf(' ') != -1) {
+				addMsg(_('Invalid Format'), null, input[0]);
+				return;
+			}
+			if (!vals[1].length || !vals[1].match(/^\S+\[\/\S+\](=\S+)?(\s+\+\s+\S*\[[^\]]+\](=\S+)?)*$/)) {
+				addMsg(_('Invalid Format'), null, input[1]);
+				return;
+			}
+			if (!vals[2].length || !vals[2].match(/^\[\/\S+\](\[[^\]]+\])*$/)) {
+				addMsg(_('Invalid Format'), null, input[2]);
+				return;
+			}
 			var tpl = sel('ana', x);
 			var ana = parseXml(tpl.outerHTML).documentElement;
 			ana.setAttribute('correct', 'True');
 			ana.setAttribute('modified', 'True');
-			sel('lemma', ana).textContent = vals[0].value.trim();
-			sel('detailed', ana).textContent = vals[1].value.trim();
-			sel('simple', ana).textContent = vals[2].value.trim();
+			sel('lemma', ana).textContent = vals[0];
+			sel('detailed', ana).textContent = vals[1];
+			sel('simple', ana).textContent = vals[2];
 			morph.appendChild(ana);
 			if (ana.previousSibling && ana.previousSibling.nodeName == '#text') {
 				morph.appendChild(ana.previousSibling);
@@ -375,35 +514,8 @@ document.addEventListener('click', function (e) {
 		return;
 	}
 	if (t.matches('.fetch.ana')) {
-		var formData = new FormData();
-		formData.append('file', new Blob(['form\n' + sel('form', xt).textContent + '\n'], { type: 'text/plain' }), 'input.txt');
-		fetch('/proxy?u=' + encodeURIComponent('http://emtsv.elte-dh.hu:5000/morph'), {
-			method: 'POST',
-			body: formData
-		}).then(r => r.text()).then(function (data) {
-			data = data.replace(/^[^\r\n]*[\r\n]+[^\t]*\t/, '');
-			data = JSON.parse(data);
-			var morph = sel('morph', xt);
-			each('ana', function (i) { delNode(i); }, morph);
-			var tpl = sel('ana', x);
-			for (var d in data) {
-				d = data[d];
-				var ana = parseXml(tpl.outerHTML).documentElement;
-				ana.setAttribute('correct', 'False');
-				sel('lemma', ana).textContent = d.lemma;
-				sel('detailed', ana).textContent = d.readable;
-				sel('simple', ana).textContent = d.tag;
-				morph.appendChild(ana);
-				if (ana.previousSibling && ana.previousSibling.nodeName == '#text') {
-					morph.appendChild(ana.previousSibling);
-				}
-				if (tpl.previousSibling && tpl.previousSibling.nodeName == '#text') {
-					morph.insertBefore(x.createTextNode(tpl.previousSibling.textContent), ana);
-				}
-			}
-			morph.setAttribute('check', 'False');
-			savePar([cid]);
-		});
+		updAna([xt], cid);
+		return;
 	}
 
 	if (t.matches('.edit.token')) {
@@ -416,12 +528,63 @@ document.addEventListener('click', function (e) {
 	}
 	if (t.matches('.save.token')) {
 		var tkn = sel('form', xt);
-		var val = sel('input', t.closest('.tooltip')).value;
-		if (tkn.textContent == val) return;
+		var input = sel('input', t.closest('.tooltip'));
+		var val = input.value.trim();
+		if (tkn.textContent == val) {
+			trg(t.closest('.tooltip'), 'close');
+			return;
+		}
+		if (!val.length || val.indexOf(' ') != -1) {
+			addMsg(_('Invalid Format'), null, input);
+			return;
+		}
 		tkn.setAttribute('modified', "True");
 		var morph = sel('morph', xt);
 		if (morph) { morph.setAttribute('check', 'False'); morph.innerHTML = ''; }
 		tkn.textContent = val;
+		updAna([xt], cid);
+		return;
+	}
+
+	if (t.matches('.ins.token')) {
+		var html = '';
+		html += '<input type="text" class="input" value="">';
+		html += '<div class="center">'
+			+ getLink(tid, 'btn token ins2 left', 'Insert Before <b>%word%</b>').replace('%word%', selToText(xt, 'form'))
+			+ getLink(tid, 'btn token ins2 right', 'Insert After <b>%word%</b>').replace('%word%', selToText(xt, 'form'))
+			+ '</div>';
+		var tt = ttip(sel('.cfg', s), e, true);
+		tt.innerHTML += html;
+		return;
+	}
+	if (t.matches('.ins2.token')) {
+		var input = sel('input', t.closest('.tooltip'));
+		var val = input.value.trim();
+		if (!val.length || val.indexOf(' ') != -1) {
+			addMsg(_('Invalid Format'), null, input);
+			return;
+		}
+		var xt2 = parseXml(xt.outerHTML).documentElement;
+		xt2.setAttribute('xml:id', getUID(x, xt.getAttribute('xml:id').split('_')[0]));
+		var tkn = sel('form', xt2);
+		tkn.textContent = val;
+		tkn.setAttribute('modified', 'True');
+		var morph = sel('morph', xt2);
+		if (morph) {
+			morph.setAttribute('check', 'False');
+			morph.innerHTML = '';
+		}
+		var tn = xt.previousSibling && xt.previousSibling.nodeName == '#text' ? xt.previousSibling.textContent : '';
+		xs.insertBefore(xt2, t.classList.contains('left') ? xt : xt.nextSibling);
+		if (tn.length) xs.insertBefore(x.createTextNode(tn), t.classList.contains('left') ? xt : xt.nextSibling);
+		updAna([xt2], cid);
+		return;
+	}
+
+	if (t.matches('.del.token')) {
+		var id = xt.getAttribute('xml:id');
+		delNode(xt);
+		updAnnot([id], []);
 		savePar([cid]);
 		return;
 	}
@@ -447,16 +610,20 @@ document.addEventListener('change', function (e) {
 
 	// sentence stuff
 
+	var val = t.dataset.value || t.value;
+	if (t.classList.contains('multiple')) val = JSON.parse(t.dataset.value);
+
 	if (t.matches('.edit.sent')) {
-		if ((xs.getAttribute('sent') || '') == t.value) return;
-		xs.setAttribute('sent', t.value);
+		val = val.join(';');
+		if ((xs.getAttribute('sent') || '') == val) return;
+		xs.setAttribute('sent', val);
 		savePar([cid]);
 		return;
 	}
 
 	if (t.matches('.join.sent')) {
-		if (t.value == '') return;
-		var off = t.value == '0' ? -1 : 1;
+		if (val == '') return;
+		var off = val == '0' ? -1 : 1;
 		var u, cids;
 		if (xsl[sid + off]) {
 			u = off > 0 ? [xs, xsl[sid + off]] : [xsl[sid + off], xs];
@@ -477,6 +644,7 @@ document.addEventListener('change', function (e) {
 			addMsg(_('Invalid Action'));
 			return;
 		}
+		u[0].setAttribute('modified', 'True');
 		u[0].innerHTML = u[0].innerHTML.replace(/[ \r\n\t]+$/, '') + u[1].innerHTML;
 		var id2 = u[1].getAttribute('xml:id').split('_');
 		delNode(u[1]);
@@ -494,25 +662,26 @@ document.addEventListener('change', function (e) {
 	}
 
 	if (t.matches('.split.sent')) {
-		if (t.value == '') return;
-		var xt2 = xtl[parseInt(tid) + (t.value == '0' ? 0 : 1)];
+		if (val == '') return;
+		var xt2 = xtl[parseInt(tid) + (val == '0' ? 0 : 1)];
 		if (!xt2 || xt2 == xtl[0]) {
 			addMsg(_('Invalid Action'));
 			return;
 		}
 		var indent = xs.previousSibling && xs.previousSibling.nodeName == '#text' ? xs.previousSibling.textContent : '';
+		xs.setAttribute('modified', 'True');
 		xs.insertBefore(x.createElement('split'), xt2);
 		var xe = x.documentElement;
 		var id = xs.getAttribute('xml:id').split('_')[0];
 		xe.innerHTML = xe.innerHTML.replace(/([ \t\r\n]*)<split[^>]*>/
-			, indent + '</' + xs.nodeName + '>' + indent + '<' + xs.nodeName + (id ? ' xml:id="' + getUID(x, id) + '"' : '') + '> $1');
+			, indent + '</' + xs.nodeName + '>' + indent + '<' + xs.nodeName + (id ? ' xml:id="' + getUID(x, id) + '"' : '') + ' modified="True"> $1');
 		savePar([cid]);
 		return;
 	}
 
 	if (t.matches('.move.sent')) {
-		if (t.value == '') return;
-		var off = t.value == '0' ? -1 : 1;
+		if (val == '') return;
+		var off = val == '0' ? -1 : 1;
 		if (!_active[cid + off]) {
 			var e = editor.renderChunk(cid + off);
 			if (e) c.parentNode.insertBefore(e, off > 0 ? c.nextSibling : c);
@@ -537,30 +706,16 @@ document.addEventListener('change', function (e) {
 
 	if (t.matches('.edit.sticky')) {
 		tid = parseInt(tid);
-		switch (xt.getAttribute('join')) {
-			case 'left':
-				if (tid > 0) xtl[tid - 1].setAttribute('join', 'no');
-				break;
-			case 'right':
-				if (tid < xtl.length - 1) xtl[tid + 1].setAttribute('join', 'no');
-				break;
-		}
-		xt.setAttribute('join', t.value);
-		switch (t.value) {
-			case 'left':
-				if (tid > 0) xtl[tid - 1].setAttribute('join', 'right');
-				break;
-			case 'right':
-				if (tid < xtl.length - 1) xtl[tid + 1].setAttribute('join', 'left');
-				break;
-		}
+		xt.setAttribute('join', val);
+		if (tid > 0) updJoin(tid - 1, xtl);
+		if (tid < xtl.length - 1) updJoin(tid + 1, xtl);
 		savePar([cid]);
 		return;
 	}
 
 	if (t.matches('.join.token')) {
-		if (t.value == '') return;
-		var off = t.value == '0' ? -1 : 1;
+		if (val == '') return;
+		var off = val == '0' ? -1 : 1;
 		var xt2 = xtl[parseInt(tid) + off];
 		if (!xt2) {
 			addMsg(_('Invalid Action'));
@@ -582,12 +737,13 @@ document.addEventListener('change', function (e) {
 			}
 		}
 		updAnnot([id1.join('_'), id2.join('_')], [u[0]]);
-		savePar([cid]);
+		updAna([u[0]], cid);
 		return;
 	}
 
 	if (t.matches('.split.token')) {
-		if (t.value == '') return;
+		console.log(val);
+		if (val == '') return;
 		var tkn = sel('form', xt);
 		tkn.setAttribute('modified', 'True');
 		var morph = sel('morph', xt);
@@ -596,27 +752,27 @@ document.addEventListener('change', function (e) {
 			morph.innerHTML = '';
 		}
 		var xt2 = parseXml(xt.outerHTML).documentElement;
-		sel('form', xt2).textContent = tkn.innerHTML.substr(t.value);
+		sel('form', xt2).textContent = tkn.innerHTML.substr(val);
 		var id1 = xt.getAttribute('xml:id');
 		if (id1) xt2.setAttribute('xml:id', getUID(x, id1.split('_')[0]));
-		tkn.textContent = tkn.textContent.substr(0, t.value);
+		tkn.textContent = tkn.textContent.substr(0, val);
 		xs.insertBefore(xt2, xt.nextSibling);
 		if (xt.previousSibling && xt.previousSibling.nodeName == '#text') {
 			xs.insertBefore(x.createTextNode(xt.previousSibling.textContent), xt.nextSibling);
 		}
 		updAnnot([id1], [xt, xt2]);
-		savePar([cid]);
+		updAna([xt, xt2], cid);
 		return;
 	}
 
 	// if (t.matches('.edit.tokentype')) {
-	// 	if (t.value == '' || t.value == xt.nodeName) return;
-	// 	var xt2 = x.createElement(t.value);
+	// 	if (val == '' || val == xt.nodeName) return;
+	// 	var xt2 = x.createElement(val);
 	// 	xt2.innerHTML = xt.innerHTML;
 	// 	sel('form', xt2).setAttribute('modified', 'True');
 	// 	var id = x.documentElement.getAttribute('xml:id');
 	// 	if (id) {
-	// 		xt2.setAttribute('xml:id', getUID(x, t.value + id));
+	// 		xt2.setAttribute('xml:id', getUID(x, val + id));
 	// 		updAnnot([xt.getAttribute('xml:id')], [xt2]);
 	// 	}
 	// 	xs.insertBefore(xt2, xt);
@@ -628,12 +784,12 @@ document.addEventListener('change', function (e) {
 	// annotation stuff
 
 	if (t.matches('.add.annot')) {
-		if (t.value == '' || !_annots.xml) return;
+		if (val == '' || !_annots.xml) return;
 		var i = _annots.xml.createElement(xt.nodeName);
 		i.setAttribute('target', xt.getAttribute('xml:id'));
 		i.textContent = sel('form', xt).textContent;
 		var a = _annots.xml.createElement('annotation');
-		a.setAttribute('entity', t.value);
+		a.setAttribute('entity', val);
 		a.appendChild(i);
 		//TODO: sort?
 		_annots.xml.documentElement.appendChild(a);
@@ -643,20 +799,20 @@ document.addEventListener('change', function (e) {
 	}
 
 	if (t.matches('.addto.annot')) {
-		if (t.value == '' || !_annots.xml) return;
-		var an = _annots.list[t.value.substr(1)];
+		if (val == '' || !_annots.xml) return;
+		var an = _annots.list[val.substr(1)];
 		var i = _annots.xml.createElement(xt.nodeName);
 		i.setAttribute('target', xt.getAttribute('xml:id'));
 		i.textContent = sel('form', xt).textContent;
-		an.insertBefore(i, t.value[0] == 'F' ? an.children[0] : null);
+		an.insertBefore(i, val[0] == 'F' ? an.children[0] : null);
 		_annots.changed = true;
 		savePar();
 		return;
 	}
 
 	if (t.matches('.delfrom.annot')) {
-		if (t.value == '' || !_annots.xml) return;
-		var an = _annots.list[t.value];
+		if (val == '' || !_annots.xml) return;
+		var an = _annots.list[val];
 		sel('[target="' + xt.getAttribute('xml:id') + '"]', an).remove();
 		if (!sel('[target]', an)) an.remove();
 		_annots.changed = true;
