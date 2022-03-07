@@ -41,11 +41,11 @@ textarea.input { height:auto; min-height:8em; resize:vertical; }
 
 .center { text-align:center; }
 
-#message { position:absolute; z-index:2; bottom:0; left:0; right:0; text-align:center; }
+#message { position:fixed; z-index:2; bottom:0; left:0; right:0; text-align:center; }
 .msg { margin-top:.5em; padding:.5em 1em; font-weight:700; line-height:1.25; }
 .msg.error { color:#A00; background:#F88; }
 .msg.success { color:#0A0; background:#8A8; }
-#message .msg { font-size:1.25em; }
+#message .msg { font-size:1.25em; margin-top:2px; }
 
 .tooltip, .confirm { 
 	position:absolute; z-index:2; border:1px solid; background:#FFF; padding:.25em .5em; margin:.25em 0; max-height:60vh; max-width:60em;
