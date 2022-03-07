@@ -1,5 +1,5 @@
-function sel(s, dom) {
-	return (dom || document).querySelector(s);
+function sel(s, dom, def) {
+	return (dom || document).querySelector(s) || def;
 }
 function find(s, dom) {
 	return (dom || document).querySelectorAll(s) || [];
@@ -27,11 +27,11 @@ function decXml(t) {
 	return ('' + t).replace('&apos;', "'").replace('&quot;', '"').replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&');
 }
 function xmlToText(xml, decode) {
-	var t = xml.replace(/<[^>]+>/sg, ' ').trim();
+	var t = (xml || '').replace(/<[^>]+>/sg, ' ').trim();
 	return decode ? decXml(t) : t.replace("'", '&apos;').replace('"', '&quot;');
 }
 function selToText(dom, s, decode) {
-	return xmlToText(sel(s, dom).innerHTML, decode);
+	return xmlToText(sel(s, dom, {}).innerHTML, decode);
 }
 function addMsg(message, cls, target) {
 	var m = document.createElement('div');
