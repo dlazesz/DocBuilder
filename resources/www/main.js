@@ -438,33 +438,42 @@ var History = function (name, max, onchange) {
 	this.name = name;
 	this.max = max;
 	this.data = JSON.parse(localStorage[name] || '[]');
+	this.bu_stamp = new Date().getTime();
 	this.onchange_cb = onchange;
 	if (this.onchange_cb) this.onchange_cb(this);
 }
-History.prototype.onchange = function () {
-	var save = Object.assign({}, this.data);
+History.BACKUP_INTERVAL = 30000;
+History.MAX_NUMBER = 10;
+History.prototype.backup = function () {
+	this.bu_stamp = new Date().getTime();
+	var d = JSON.parse(JSON.stringify(this.data));
 	while (save.length) {
 		try {
-			localStorage[this.name] = JSON.stringify(save);
+			localStorage[this.name] = JSON.stringify(d);
 			break;
 		} catch (e) {
-			save.pop();
+			console.error('Could not save data into localStorage');
+			d.pop();
 		}
 	}
+}
+History.prototype.onchange = function () {
+	var self = this;
+	clearTimeout(this.timer);
+	this.timer = setTimeout(function () { self.backup() }, Math.max(200, (this.bu_stamp || 0) + History.BACKUP_INTERVAL - new Date().getTime()));
 	if (this.onchange_cb) this.onchange_cb(this);
 }
 History.prototype.add = function (data) {
 	while (this.data.length >= this.max) {
 		this.data.pop();
 	}
-
 	this.data.unshift(JSON.parse(JSON.stringify(data)));
 	this.onchange();
 }
 History.prototype.get = function (num, peek) {
 	var data = this.data[num || 0];
 	if (data && !peek) {
-		this.data.splice(num, 1);
+		this.data.splice(num || 0, 1);
 		this.onchange();
 	}
 	return data;
@@ -484,7 +493,7 @@ History.prototype.clear = function () {
 
 var hist = { recent: null, undo: null, redo: null };
 for (var n in hist) {
-	hist[n] = new History('ed_' + n, 10, function (h) {
+	hist[n] = new History('ed_' + n, History.MAX_NUMBER, function (h) {
 		disable('.' + h.name.replace('_', '-'), !h.isEmpty());
 	});
 }
