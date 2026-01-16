@@ -1,5 +1,4 @@
 (function () {
-
 	var TOKEN_STICKY = {
 		'left': 'Sticks Left',
 		'right': 'Sticks Right',
@@ -30,6 +29,15 @@
 		'Helynév': 'Helynév',
 		'Intézménynév': 'Intézménynév'
 	}
+
+	Locale['Detailed'] = 'Részletes';
+	Locale['Simple'] = 'Egyszerű';
+	Locale['Re-Analyze'] = 'Új elemzés';
+	Locale['Select Ana.'] = 'Elemzés választása';
+	Locale['No Selected Analyzation'] = 'Nincs kiválasztva elemzés';
+	Locale['Type: Word'] = 'Típus: Szó';
+	Locale['Type: Punct'] = 'Típus: Punkt.';
+	Locale['Select Sentinence...'] = 'Érzelemtípus...';
 
 	var _active = {};
 	var _annots = { changed: false };
@@ -345,7 +353,7 @@
 					html += TOKEN.getSelect(tid, 'split token', '', 'Split Token...', split);
 				}
 				//html += TOKEN.getSelect(tid, 'edit tokentype', xt.nodeName, '', { w: 'Type: Word', pc: 'Type: Punct' });
-				html += TOKEN.getSelect(tid, 'join token', '', 'Join Token...', { '0': 'Before', '1': 'After' });
+				html += TOKEN.getSelect(tid, 'join token', '', 'Join Token...', TOKEN.SEL_WHERE);
 				html += TOKEN.getLink(tid, 'edit token', 'Fix Token');
 				html += TOKEN.getLink(tid, 'ins token', 'Insert Token');
 				html += TOKEN.getLink(tid, 'del token', 'Delete Token');
@@ -354,10 +362,10 @@
 				html += TOKEN.getSelect(tid, 'edit sent', (xs.getAttribute('sent') || '').split(';'), 'Select Sentinence...', SENT_TYPE, true);
 			}
 			if (xt) {
-				html += TOKEN.getSelect(tid, 'split sent', '', 'Split Sentence...', { '0': 'Before', '1': 'After' });
+				html += TOKEN.getSelect(tid, 'split sent', '', 'Split Sentence...', TOKEN.SEL_WHERE);
 			} else {
-				html += TOKEN.getSelect(tid, 'join sent', '', 'Join Sentence...', { '0': 'Before', '1': 'After' });
-				html += TOKEN.getSelect(tid, 'move sent', '', 'Move Sentence...', { '0': 'Before', '1': 'After' });
+				html += TOKEN.getSelect(tid, 'join sent', '', 'Join Sentence...', TOKEN.SEL_WHERE);
+				html += TOKEN.getSelect(tid, 'move sent', '', 'Move Sentence...', TOKEN.SEL_WHERE);
 			}
 
 			var tt = ttip(t, e);
@@ -588,7 +596,7 @@
 			if (id1.length > 1) {
 				if (id2.length > 1) {
 					u[0].setAttribute('xml:id', '');
-					u[0].setAttribute('xml:id', getUID(x, id[0]));
+					u[0].setAttribute('xml:id', getUID(x, id1[0]));
 				} else {
 					u[0].setAttribute('xml:id', id2[0]);
 				}

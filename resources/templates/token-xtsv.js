@@ -1,5 +1,11 @@
 (function () {
 
+	Locale['Detailed'] = 'Részletes';
+	Locale['Simple'] = 'Egyszerű';
+	Locale['Re-Analyze'] = 'Új elemzés';
+	Locale['Select Ana.'] = 'Elemzés választása';
+	Locale['No Selected Analyzation'] = 'Nincs kiválasztva elemzés';
+
 	var _active = {};
 	var _cols = {};
 
@@ -221,7 +227,6 @@
 			if (xt) { //token
 				t.classList.add('active');
 				html += TOKEN.getLink(tid, 'edit ana', 'Select Ana.');
-				//html += TOKEN.getSelect(tid, 'edit sticky', xt.getAttribute('join') || '?', 'Sticks To...', TOKEN_STICKY);
 				var w = getToken(xt);
 				if (w.length > 1) {
 					var split = {};
@@ -230,7 +235,7 @@
 					}
 					html += TOKEN.getSelect(tid, 'split token', '', 'Split Token...', split);
 				}
-				html += TOKEN.getSelect(tid, 'join token', '', 'Join Token...', { '0': 'Before', '1': 'After' });
+				html += TOKEN.getSelect(tid, 'join token', '', 'Join Token...', TOKEN.SEL_WHERE);
 				html += TOKEN.getLink(tid, 'edit token', 'Fix Token');
 				html += TOKEN.getLink(tid, 'ins token', 'Insert Token');
 				html += TOKEN.getLink(tid, 'del token', 'Delete Token');
@@ -238,9 +243,9 @@
 				s.classList.add('active');
 			}
 			if (xt) {
-				html += TOKEN.getSelect(tid, 'split sent', '', 'Split Sentence...', { '0': 'Before', '1': 'After' });
+				html += TOKEN.getSelect(tid, 'split sent', '', 'Split Sentence...', TOKEN.SEL_WHERE);
 			} else {
-				html += TOKEN.getSelect(tid, 'join sent', '', 'Join Sentence...', { '0': 'Before', '1': 'After' });
+				html += TOKEN.getSelect(tid, 'join sent', '', 'Join Sentence...', TOKEN.SEL_WHERE);
 			}
 
 			var tt = ttip(t, e);
