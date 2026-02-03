@@ -3,6 +3,7 @@
 	"extension": "xml",
 	"js": "token.js,token-metaphor.js",
 	"css": "token.css",
+	"template": "template-metaphor.xml",
 	"chunks": {
 		"<teiHeader>.*?(?:</teiHeader>)": ".header",
 		"<head(?:| [^>]*)>.*?(?:</head>)": ".head",

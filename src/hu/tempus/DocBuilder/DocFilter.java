@@ -35,7 +35,7 @@ public class DocFilter extends FileFilter {
 		mFilter = new FileNameExtensionFilter(
 				config.has("name") ? config.get("name").getAsString() : file.getName().replace("\\.[^.]+$", ""), mExtension);
 		String cf = config.has("template") ? config.get("template").getAsString() : "";
-		mDefaultContent = cf.isEmpty() ? null : new File(cf);
+		mDefaultContent = cf.isEmpty() ? null : new File(file.getParent() + "/" + cf);
 		mSplitter = new LinkedHashMap<>();
 		if (config.has("chunks")) {
 			config.get("chunks").getAsJsonObject().asMap().forEach((name, value) -> mSplitter.put(name, value.getAsString()));

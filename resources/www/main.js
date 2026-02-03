@@ -63,7 +63,6 @@ function ttip(dom, event, modal) {
 	var t = document.createElement('div');
 	t.className = 'tooltip' + (modal ? ' modal' : '');
 	dom.parentNode.insertBefore(t, dom.nextSibling);
-	if (modal) document.body.classList.add('has-modal');
 	clean_ttip(t);
 
 	var c = t.offsetParent || document.body;
@@ -99,7 +98,6 @@ function clean_ttip(t) {
 		for (var j in t2) { if (t2[j] == t) return; }
 		trg(i, 'close');
 	});
-	if (!sel('.tooltip.modal')) document.body.classList.remove('has-modal');
 }
 function select(val, empty_opt, opts, multiple) {
 	var s = document.createElement('div');
@@ -162,7 +160,6 @@ document.addEventListener('close', function (e) {
 		each('.select.multiple.open', function (i) { trg(i, 'change'); }, t)
 		setTimeout(function () {
 			t.remove();
-			if (!sel('.tooltip.modal')) document.body.classList.remove('has-modal');
 		}, 50);
 	}
 });
@@ -178,7 +175,7 @@ window.onerror = function (errorMsg, url, lineNum, colNum, error) {
 	addMsg('Exception: ' + errorMsg);
 	fetch('/error', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json; charset=utf-8' },
 		body: JSON.stringify(error && error.stack ? error.stack : (errorMsg + ' (' + url + ':' + lineNum + ')'))
 	});
 };
@@ -539,7 +536,7 @@ function open(id, onsuccess, reload) {
 function save(chunks) {
 	fetch('/save?create=' + (chunks ? 0 : 1) + '&id=' + encodeURIComponent(editor.id || 0), {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json; charset=utf-8' },
 		body: JSON.stringify(chunks || editor.chunks)
 	}).then(r => r.json()).then(function (data) {
 		if (!data.success) {

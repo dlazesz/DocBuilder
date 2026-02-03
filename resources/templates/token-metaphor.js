@@ -25,6 +25,8 @@
 
 	Locale['Meanings'] = 'Jelentések';
 	Locale['Reasoning'] = 'Érvelés';
+	Locale['Content'] = 'Tartalom (szöveges)';
+	Locale['Set Content...'] = 'Tartalom felülírása';
 
 	function format(name, el) {
 		if (!el) return '&nbsp;';
@@ -43,13 +45,16 @@
 	}
 
 	var _active = {};
+	var _content = {};
 
 	Editor.TYPES.p = {
 		remove: function (input, chunk) {
 			delete _active[input.dataset.cid];
 		},
 		getValue: function (input, chunk) {
-			let x = _active[input.dataset.cid];
+			let x = _content[input.dataset.cid];
+			if (x) { delete _content[input.dataset.cid]; return x; }
+			x = _active[input.dataset.cid];
 			return x ? x.documentElement.outerHTML : chunk.value;
 		},
 		render: function (chunk, cid) {
@@ -207,6 +212,7 @@
 			} else {
 				html += TOKEN.getSelect(tid, 'join sent', '', 'Join Sentence...', TOKEN.SEL_WHERE);
 				html += TOKEN.getSelect(tid, 'move sent', '', 'Move Sentence...', TOKEN.SEL_WHERE);
+				html += TOKEN.getLink(tid, 'set content', 'Set Content...');
 			}
 
 			let tt = ttip(t, e);
@@ -315,13 +321,13 @@
 		}
 
 		if (t.matches('.ins.token')) {
+			let tt = ttip(sel('.cfg', s), e, true);
 			let html = '';
 			html += '<input type="text" class="input" value="">';
 			html += '<div class="center">'
 				+ TOKEN.getLink(tid, 'btn token ins-save left', 'Insert Before <b>%word%</b>').replace('%word%', selToText(xt, 'form'))
 				+ TOKEN.getLink(tid, 'btn token ins-save right', 'Insert After <b>%word%</b>').replace('%word%', selToText(xt, 'form'))
 				+ '</div>';
-			let tt = ttip(sel('.cfg', s), e, true);
 			tt.innerHTML += html;
 			return;
 		}
@@ -347,11 +353,45 @@
 		}
 
 		if (t.matches('.del.token')) {
-			let id = xt.getAttribute('xml:id');
 			delNode(xt);
 			refresh([cid]);
 			savePar([cid]);
 			return;
+		}
+
+		if (t.matches('.set.content')) {
+			let tt = ttip(sel('.cfg', s), e, true);
+			let html = '';
+			html += '<input type="url" name="api" class="input" placeholder="API URL" value="' + (localStorage['metaphor_api'] || '') + '">';
+			html += '<input type="password" name="token" class="input" placeholder="API Token" value="' + (localStorage['metaphor_token'] || '') + '">';
+			html += '<textarea name="content" class="input" placeholder="' + _('Content') + '"></textarea>';
+			html += '<div class="center">'
+				+ TOKEN.getLink(tid, 'btn save content', 'Save')
+				+ '</div>';
+			tt.innerHTML += html;
+			return;
+		}
+
+		if (t.matches('.save.content')) {
+			localStorage['metaphor_api'] = sel('[name="api"]', t.closest('.tooltip')).value;
+			localStorage['metaphor_token'] = sel('[name="token"]', t.closest('.tooltip')).value;
+			let txt = sel('[name="content"]', t.closest('.tooltip')).value.trim();
+			if (txt.length && localStorage['metaphor_api']) {
+				fetch(localStorage['metaphor_api'], {
+					method: 'POST',
+					headers: {
+						'Accept': 'application/xml',
+						'Content-Type': 'application/json; charset=utf-8',
+						'Authorization': 'Bearer ' + localStorage['metaphor_token']
+					},
+					body: JSON.stringify({text:txt})
+				}).then(r => r.text()).then(function(data) { 
+					let xml = sel('body', parseXml(data));
+					_content[cid] = xml.innerHTML;
+					editor.forceReload = true;
+					savePar([cid]);
+				});
+			}
 		}
 	});
 

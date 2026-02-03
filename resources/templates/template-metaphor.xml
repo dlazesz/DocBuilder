@@ -1,0 +1,21 @@
+<TEI xml:lang="hu">
+	<teiHeader>
+		<fileDesc>
+			<titleStmt>
+				<title></title>
+			</titleStmt>
+			<docAuthor></docAuthor>
+			<publicationStmt>
+				<publisher></publisher>
+			</publicationStmt>
+		</fileDesc>
+	</teiHeader>
+	<text>
+		<body>
+			<div>
+				<s xml:id="s1">
+				</s>
+			</div>
+		</body>
+	</text>
+</TEI>
