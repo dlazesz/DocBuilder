@@ -4,9 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -32,6 +32,7 @@ public class RequestHandler implements HttpHandler {
 	private final String origin;
 	private final Map<String, Long> instances = new HashMap<>();
 	private static final SimpleDateFormat HDATE = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US);
+	private static final String[] PROXY_HEADERS = {"Content-Type", "Content-Length", "Authorization"};
 
 	public RequestHandler(Config config) {
 		mConfig = config;
@@ -113,12 +114,23 @@ public class RequestHandler implements HttpHandler {
 			}
 
 			try {
-				URLConnection conn = new URI(address).toURL().openConnection();
+				HttpURLConnection conn = (HttpURLConnection) new URI(address).toURL().openConnection();
 				Headers h = req.request.getRequestHeaders();
 				conn.setRequestProperty("User-Agent", h.getFirst("User-Agent"));
+				conn.setAllowUserInteraction(true);
+				for (String hk : PROXY_HEADERS) {
+					String hv = h.getFirst(hk);
+					if (null != hv) {
+						conn.setRequestProperty(hk, hv);
+					}
+				}
 				if ("POST".equals(req.request.getRequestMethod())) {
-					conn.setRequestProperty("Content-Type", h.getFirst("Content-Type"));
-					conn.setRequestProperty("Content-Length", h.getFirst("Content-Length"));
+					for (String hk : PROXY_HEADERS) {
+						String hv = h.getFirst(hk);
+						if (null != hv) {
+							conn.setRequestProperty(hk, hv);
+						}
+					}
 					conn.setDoOutput(true);
 					IOUtils.redirect(req.request.getRequestBody(), conn.getOutputStream());
 				} else {
@@ -130,10 +142,10 @@ public class RequestHandler implements HttpHandler {
 					req.addHeader("Content-Type", type);
 				}
 
-				Long len = conn.getContentLengthLong();
-				req.request.sendResponseHeaders(200, len == -1 ? 0 : len);
-
-				IOUtils.redirect(conn.getInputStream(), req.request.getResponseBody());
+				int code = conn.getResponseCode();
+				long len = conn.getContentLengthLong();
+				req.request.sendResponseHeaders(code, len == -1 ? 0 : len);
+				IOUtils.redirect(code >= 400 ? conn.getErrorStream() : conn.getInputStream(), req.request.getResponseBody());
 				return true;
 
 			} catch (URISyntaxException e) {

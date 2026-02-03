@@ -377,7 +377,7 @@
 			localStorage['metaphor_token'] = sel('[name="token"]', t.closest('.tooltip')).value;
 			let txt = sel('[name="content"]', t.closest('.tooltip')).value.trim();
 			if (txt.length && localStorage['metaphor_api']) {
-				fetch(localStorage['metaphor_api'], {
+				fetch('/proxy?u=' + encodeURIComponent(localStorage['metaphor_api']), {
 					method: 'POST',
 					headers: {
 						'Accept': 'application/xml',
@@ -385,11 +385,15 @@
 						'Authorization': 'Bearer ' + localStorage['metaphor_token']
 					},
 					body: JSON.stringify({text:txt})
-				}).then(r => r.text()).then(function(data) { 
-					let xml = sel('body', parseXml(data));
-					_content[cid] = xml.innerHTML;
-					editor.forceReload = true;
-					savePar([cid]);
+				}).then(r => r.ok ? r.text() : r.json()).then(function(data) { 
+					if (typeof data == 'string') {
+						let xml = sel('body', parseXml(data));
+						_content[cid] = xml.innerHTML;
+						editor.forceReload = true;
+						savePar([cid]);
+					} else {
+						addMsg(data.detail || 'unknown error', false, sel('[name="content"]', t.closest('.tooltip')));
+					}
 				});
 			}
 		}
