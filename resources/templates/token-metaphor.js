@@ -26,7 +26,7 @@
 	Locale['Meanings'] = 'Jelentések';
 	Locale['Reasoning'] = 'Érvelés';
 	Locale['Content'] = 'Tartalom (szöveges)';
-	Locale['Set Content...'] = 'Tartalom felülírása';
+	Locale['Set Paragraph...'] = 'Bekezdés felülírása';
 
 	function format(name, el) {
 		if (!el) return '&nbsp;';
@@ -212,7 +212,7 @@
 			} else {
 				html += TOKEN.getSelect(tid, 'join sent', '', 'Join Sentence...', TOKEN.SEL_WHERE);
 				html += TOKEN.getSelect(tid, 'move sent', '', 'Move Sentence...', TOKEN.SEL_WHERE);
-				html += TOKEN.getLink(tid, 'set content', 'Set Content...');
+				html += TOKEN.getLink(tid, 'set content', 'Set Paragraph...');
 			}
 
 			let tt = ttip(t, e);
