@@ -18,6 +18,9 @@
 
 .par .active { border-color:#00F; box-shadow:0 0 .5em .125em #00F; position:relative; z-index:1; }
 
+table.nb { width:100%; }
+table.nb td { border:0; vertical-align:middle; }
+
 table.s { width:100%; }
 table.s td { padding:.5em 1em; border-color:#000; }
 table.s .cfg td { text-align:right; }

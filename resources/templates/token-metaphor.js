@@ -39,7 +39,7 @@
 			case 'meanings':
 				let c = sel('contextualIndex', el);
 				if (!c || 1 == c.textContent) return format('', sel('primary', el));
-				return format('', sel('other', el)).replace(new RegExp('.*(?:^|\n)(' + c.textContent + '\.*?)(?:\n.*|$)', 's'), '$1');
+				return format('', sel('other', el)).replace(new RegExp('.*(?:^|\n)(' + c.textContent + '\\..*?)(?:\n.*|$)', 's'), '$1');
 		}
 		return el.textContent.replaceAll('\\n', '\n').replaceAll('\\t', '\t').trim().replaceAll(/[\t ]+/g, ' ').replaceAll(/ *\n */g, '\n');
 	}
@@ -88,8 +88,11 @@
 			if (h.name == '.header') {
 				let html = '';
 				let x = parseXml(h.value);
-				html = '<h2>' + selToText(x, 'title') + '</h2>'
-					+ '<h3>' + selToText(x, 'author') + '</h3>' + html;
+				html = '<table class="nb"><tr><td><img src="/assets/metaphor-aid.webp" class="logo" style="height:3em"/></td><td>'
+					+ '<h2>' + selToText(x, 'title') + '</h2>'
+					+ '<h3>' + selToText(x, 'author') + '</h3>'
+					+ '</tr></table>'
+					+ html;
 				sel('#header').innerHTML = html;
 			}
 		}

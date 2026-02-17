@@ -4,6 +4,8 @@ Locale = {
 	'Save As...': 'Mentés mint...',
 	'Undo': 'Vissza',
 	'Redo': 'Előre',
+	'Exit': 'Kilépés',
+	'Do you want to exit?': 'Biztos ki akarsz lépni a programból?',
 	'Yes': 'Igen',
 	'Cancel': 'Mégse',
 	'There are unsaved changes! Are you sure?': 'Vannak nem elmentett változtatások! Biztos folytatod?',

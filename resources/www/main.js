@@ -625,6 +625,11 @@ evt('.ed-undo', 'click', function () {
 evt('.ed-redo', 'click', function () {
 	undo(true);
 });
+evt('.ed-exit', 'click', function () {
+	if (confirm(_('Do you want to exit?'))) {
+		fetch('/exit').then(() => window.location.href='about:blank');
+	}
+});
 
 document.addEventListener('click', function (e) {
 	var t = e.target;
