@@ -32,8 +32,6 @@
 		if (!el) return '&nbsp;';
 		switch (name) {
 			case 'metaphor':
-			case 'nerTag':
-				return _(TOKEN.SEL_BOOL[el.textContent] || '&nbsp;');
 			case 'otherIndirect':
 				return INDIRECT[el.textContent] || '&nbsp;';
 			case 'meanings':
@@ -244,7 +242,7 @@
 						break;
 					case 'nerTag':
 					case 'metaphor':
-						td = '<input type="checkbox" name="' + f + '" class="input" value="True"' + ('True' == format('', sel(f, xt)) ? ' checked' : '') + '>';
+						td = '<input type="text" name="' + f + '" class="input" value="' + format('', sel(f, xt)) + '">';
 						break;
 					case 'otherIndirect':
 						let s = select(format('', sel(f, xt)), '', INDIRECT);
