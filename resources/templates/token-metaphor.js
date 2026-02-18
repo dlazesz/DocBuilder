@@ -32,6 +32,7 @@
 		if (!el) return '&nbsp;';
 		switch (name) {
 			case 'metaphor':
+				return _(TOKEN.SEL_BOOL[el.textContent] || '&nbsp;');
 			case 'otherIndirect':
 				return INDIRECT[el.textContent] || '&nbsp;';
 			case 'meanings':
@@ -231,6 +232,7 @@
 					case 'word':
 					case 'lemma':
 					case 'pos':
+					case 'nerTag':
 						td = '<input type="text" name="' + f + '" class="input" value="' + format('', sel(f, xt)) + '">';
 						break;
 					case 'meanings':
@@ -240,9 +242,8 @@
 					case 'comment':
 						td = '<textarea name="' + f + '" class="input">' + encXml(format('', sel(f, xt))) + '</textarea>';
 						break;
-					case 'nerTag':
 					case 'metaphor':
-						td = '<input type="text" name="' + f + '" class="input" value="' + format('', sel(f, xt)) + '">';
+						td = '<input type="checkbox" name="' + f + '" class="input" value="True"' + ('True' == format('', sel(f, xt)) ? ' checked' : '') + '>';
 						break;
 					case 'otherIndirect':
 						let s = select(format('', sel(f, xt)), '', INDIRECT);
