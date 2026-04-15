@@ -190,7 +190,7 @@
 		var token = tokens.shift();
 		var formData = new FormData();
 		formData.append('file', new Blob(['form\n' + getToken(token) + '\n'], { type: 'text/plain' }), 'input.txt');
-		fetch('/proxy?u=' + encodeURIComponent('https://juniper.nytud.hu/emtsv/morph'), {
+		fetch('https://emtsv.elte-dh.hu/morph', {
 			method: 'POST',
 			body: formData
 		}).then(r => r.text()).then(function (data) {

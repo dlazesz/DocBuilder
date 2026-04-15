@@ -87,7 +87,7 @@
 			if (h.name == '.mm_header') {
 				let html = '';
 				let x = parseXml(h.value);
-				html = '<img class="logo" src="/assets/metaphor-aid.webp" class="logo" style="height:3em"/>'
+				html = '<img class="logo" src="./templates/assets/metaphor-aid.webp" class="logo" style="height:3em"/>'
 					+ '<h2>' + selToText(x, 'title') + '</h2>'
 					+ '<h3>' + selToText(x, 'author') + '</h3>'
 					+ html;
@@ -378,7 +378,7 @@
 			localStorage['metaphor_token'] = sel('[name="token"]', t.closest('.tooltip')).value;
 			let txt = sel('[name="content"]', t.closest('.tooltip')).value.trim();
 			if (txt.length && localStorage['metaphor_api']) {
-				fetch('/proxy?u=' + encodeURIComponent(localStorage['metaphor_api']), {
+				fetch(localStorage['metaphor_api'], {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json; charset=utf-8',

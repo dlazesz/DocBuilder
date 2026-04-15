@@ -164,20 +164,59 @@ document.addEventListener('close', function (e) {
 	}
 });
 
+const DB_NAME = "AnnotationInterfaceIndexedDB";   // The name of our IndexedDB database
+const STORE_NAME = "annotationFiles";             // The name of the object store (like a table)
+
+let db;  // Will hold the database connection
+
 window.addEventListener('DOMContentLoaded', function () {
-	var _instanceId = Math.floor(Math.random() * 900000) + 100000;
-	navigator.sendBeacon('/add-session?id=' + _instanceId)
-	window.addEventListener('unload', function () {
-		navigator.sendBeacon('/del-session?id=' + _instanceId);
-	});
+	// Initialise the database
+	// Request to open (or create) the database
+	const request = indexedDB.open(DB_NAME, 1);
+
+	// Called if the DB doesn't exist yet or version changes
+	request.onupgradeneeded = (e) => {
+		db = e.target.result;
+		// Create an object store (like a table) with "name" as the key
+		db.createObjectStore(STORE_NAME, { keyPath: 'name' });
+	};
+
+	// Called when the DB is ready to use
+	request.onsuccess = (e) => {
+		db = e.target.result;
+
+		// Init recent files from DB
+		listFilesInIndexedDB()
+			.then(keys => {hist.recent.clear();  // Clear history
+				keys.forEach(key => {
+					hist.recent.add(key);
+				});
+			})
+			.catch(err => addMsg(_('Database error:' + err), 'error'));
+	};
+
+	// Called if there's an error opening the DB
+	request.onerror = (e) => addMsg(_('Database error:' + e.target.error), 'error');
 });
-window.onerror = function (errorMsg, url, lineNum, colNum, error) {
-	addMsg('Exception: ' + errorMsg);
-	fetch('/error', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json; charset=utf-8' },
-		body: JSON.stringify(error && error.stack ? error.stack : (errorMsg + ' (' + url + ':' + lineNum + ')'))
+
+function listFilesInIndexedDB() {
+	return new Promise((resolve, reject) => {
+		// Create a read-only transaction
+		const tx = db.transaction(STORE_NAME, 'readonly');
+		// Get the object store
+		const store = tx.objectStore(STORE_NAME);
+
+		// Get the specific key
+		const getRequest = store.getAllKeys();
+
+		// Pass when transaction is complete
+		getRequest.onsuccess = () => resolve(getRequest.result);
+		getRequest.onerror = (e) => reject(e);
 	});
+}
+
+window.onerror = function (errorMsg, url, lineNum, colNum, error) {
+	addMsg('Exception: ' + errorMsg + ' (' + url + ':' + lineNum + ')', 'error');
 };
 
 function _(text) {
@@ -509,56 +548,297 @@ var editor = new Editor(sel('#editor'), function (chunks, values) {
 	save(tosave);
 });
 
-function open(id, onsuccess, reload) {
-	fetch('/open?id=' + encodeURIComponent(id || '') + '&last=' + encodeURIComponent(hist.recent.get(0, 1) || '') + '&reload=' +  (reload ? 1 : 0)).then(r => r.json()).then(function (data) {
-		if (!data.success) {
-			addMsg(data.error || _('Unknown Error'));
-			return;
-		}
-		evt(editor.dom, 'load', function () {
-			hist.recent.walk(function (data, i) {
-				if (data == editor.id) hist.recent.get(i);
-			})
-			hist.recent.add(editor.id);
-			if (onsuccess) onsuccess();
+function loadJSONFromURL(url) {
+	return fetch(url)
+		.then(response => {
+			if (!response.ok) {
+				addMsg(_('Error fetching file: ' + url), 'error');
+				throw new Error('Failed to load ' + url);
+			}
+			return response.json();
 		});
-		editor.load(data, false);
-		if (editor.restore) {
-			editor.render(editor.restore);
-			editor.restore = false;
-		}
-		if (editor.restoreHidden) {
-			editor.renderHidden(editor.restoreHidden);
-			editor.restoreHidden = false;
-		}
+}
+
+function loadTemplate(templateDir, url) {
+	return loadJSONFromURL(`./${templateDir}/${url}`)
+		.then(template => {
+			if (typeof template['css'] === 'string') {
+				template['css'] = template['css'].split(',');
+			}
+			if (typeof template['js'] === 'string') {
+				template['js'] = template['js'].split(',');
+			}
+
+			template.css = template.css.map(e => `./${templateDir}/${e}`);
+			template.js = template.js.map(e => `./${templateDir}/${e}`);
+
+			return template;
+		})
+		.catch(err => {
+			console.error('Error loading template:', err);
+			// Rethrow so the caller can handle it
+			return Promise.reject(err);
+		});
+}
+
+function chooseFile(extension) {
+	return new Promise((resolve, reject) => {
+		// Create a hidden file input restricted to the template extension
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.' + extension;
+		input.multiple = false;
+		input.style.display = 'none';
+		document.body.appendChild(input);
+
+		input.onchange = () => {
+			const file = input.files[0];
+			// Clean up
+			input.remove();
+			file ? resolve(file) : reject(new Error('No file chosen'));
+		};
+
+		input.click();
 	});
 }
-function save(chunks) {
-	fetch('/save?create=' + (chunks ? 0 : 1) + '&id=' + encodeURIComponent(editor.id || 0), {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json; charset=utf-8' },
-		body: JSON.stringify(chunks || editor.chunks)
-	}).then(r => r.json()).then(function (data) {
-		if (!data.success) {
-			addMsg(data.error || _('Unknown Error'));
-			return;
+
+function readFileAsText(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = (e) => resolve(e.target.result);
+		reader.onerror = reject;
+		reader.readAsText(file, 'UTF-8');
+	});
+}
+
+function storeFileInIndexedDB(fileName, data) {
+	return new Promise((resolve, reject) => {
+		// Create a transaction with read/write access
+		const tx = db.transaction(STORE_NAME, 'readwrite');
+		// Get the object store we’ll write to
+		const store = tx.objectStore(STORE_NAME);
+
+		// Save the chunks as an object: { name, data }
+		store.put({ name: fileName, data });
+
+		// Pass when transaction is complete
+		tx.oncomplete = () => resolve(data);
+
+		tx.onerror = (e) => reject(e);
+	});
+}
+
+function open(id, onsuccess) {
+	let promise;
+	// Load file from FileInIndexedDB
+	if (id !== undefined) {
+		promise = retriveFileInIndexedDB(id);
+	} else {
+		// Open new file
+		promise = loadTemplate('templates', 'template.json')
+			.then(template => chooseFile(template.extension)
+				.then(file => readFileAsText(file)
+					.then(text => storeFileInIndexedDB(file.name, prepareData(file.name, text, template)))
+				)
+			);
+	}
+
+	promise.then(storedData => {
+		fileLoaded(storedData, onsuccess);
+	})
+		.catch(err => {
+			console.error('Error during file open process:', err);
+			addMsg(_('Error during file open process:' + err), 'error');
+		});
+}
+
+function fileLoaded(data, onsuccess) {
+	evt(editor.dom, 'load', function () {
+		hist.recent.walk(function (data, i) {
+			if (data == editor.id) hist.recent.get(i);
+		});
+		hist.recent.add(editor.id);
+		if (onsuccess) onsuccess();
+	});
+	editor.load(data, false);
+	if (editor.restore) {
+		editor.render(editor.restore);
+		editor.restore = false;
+	}
+	if (editor.restoreHidden) {
+		editor.renderHidden(editor.restoreHidden);
+		editor.restoreHidden = false;
+	}
+}
+
+function prepareData(fileName, text, template) {
+	const mChunks = getChunks(text, template.chunks);
+	return { id: fileName, chunks: mChunks, js: template.js, css: template.css };
+}
+
+function getChunks(content, splitter) {
+	const matches = [];
+
+	// Collect all matches
+	Object.entries(splitter).forEach(([patternStr, key]) => {
+		const regex = new RegExp(patternStr, 'gs'); // g = global, s = dotall
+		let match;
+		while ((match = regex.exec(content)) !== null) {
+			matches.push({
+				start: match.index,
+				end: regex.lastIndex,
+				chunk: { 'id': null, 'name': key, 'value': match[0] }
+			});
 		}
-		addMsg(_('Document Saved'), 'success');
-		if (editor.forceReload) {
-			open(editor.id, false, true);
-			editor.forceReload = false;
+	});
+
+	// Sort matches
+	matches.sort((a, b) => {
+		if (a.start === b.start) {
+			return b.end - a.end; // Longer match first
+		}
+		return a.start - b.start;
+	});
+
+	const chunks = [];
+	let pos = 0;
+	let id = 0;
+
+	for (const m of matches) {
+		const c = m.chunk;
+		const start = m.start;
+		const end = m.end;
+
+		if (pos > start) {
+			// Overlapping, just add this chunk
+			chunks.push(c);
+			continue;
+		}
+
+		if (pos < start) {
+			// Add intermediate chunk
+			chunks.push({ 'id': ++id, 'name': '', 'value': content.substring(pos, start) });
+		}
+
+		c.id = ++id;
+		chunks.push(c);
+		pos = end;
+	}
+
+	// Add any remaining content at the end
+	if (pos < content.length) {
+		chunks.push({ 'id': ++id, 'name': '', 'value': content.substring(pos) });
+	}
+
+	return chunks;
+}
+
+function setChunks(chunks, mChunks) {
+	let i = 0, j = 0;
+
+	while (i < chunks.length || j < mChunks.length) {
+		if (i < chunks.length && j < mChunks.length && chunks[i].id === mChunks[j].id) {
+			// If both chunks and mChunks have the same id, merge them
+			if (chunks[i].append || false) {
+				mChunks[j].value = mChunks[j].value + (chunks[i].value || '');
+			} else {
+				mChunks[j].value = chunks[i].value || '';
+			}
+			i++;
+			j++;
+		} else if (i < chunks.length && (j >= mChunks.length || chunks[i].id < mChunks[j].id)) {
+			// If no matching mChunk, just add the chunk
+			throw new Error(`No matching mChunk found for chunk with id: ${chunks[i].id}`);
 		} else {
-			if (editor.restore) {
-				editor.render(editor.restore);
-				editor.restore = false;
-			}
-			if (editor.restoreHidden) {
-				editor.renderHidden(editor.restoreHidden);
-				editor.restoreHidden = false;
-			}
+			// If no matching chunk, just add the mChunk leave mChunk as is (skip)
+			j++;
 		}
+	}
+
+	return mChunks;
+}
+
+function retriveFileInIndexedDB(fileName) {
+	return new Promise((resolve, reject) => {
+		// Create a read-only transaction
+		const tx = db.transaction(STORE_NAME, 'readonly');
+		// Get the object store
+		const store = tx.objectStore(STORE_NAME);
+
+		// Get the specific key
+		const getRequest = store.get(fileName);
+
+		// Pass when transaction is complete
+		getRequest.onsuccess = () => resolve(getRequest.result?.data ?? null);
+		getRequest.onerror = (e) => reject(e);
 	});
 }
+
+function buildFile(mChunks) {
+	let result = '';
+
+	for (const chunk of mChunks) {
+		if (chunk.id == null) continue;
+		result += chunk.value;
+	}
+	return new Blob([result]);
+}
+
+function saveFile(fileName, data) {
+	// Create a temporary object URL to download
+	const url = URL.createObjectURL(data);
+
+	// Create a temporary <a> element to trigger the download
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = fileName;  // Original file name
+	a.click();              // Simulate click to download
+
+	// Clean up the temporary URL
+	URL.revokeObjectURL(url);
+	// Clean up the temporary <a> element
+	a.remove();
+
+	addMsg(_('Document Saved'), 'success');
+}
+
+function save(chunks) {
+	// If chunks is undefined, use editor.chunks, otherwise use provided chunks
+	retriveFileInIndexedDB(editor.id || 0)
+		.then(data => {
+			// Set chunks using setChunks, and store the updated result in IndexedDB
+			data.chunks = setChunks(chunks || editor.chunks, data.chunks);
+			// Store the data in IndexedDB with the correct fileName (data.id)
+			return storeFileInIndexedDB(data.id, data); // Return the promise from storeFileInIndexedDB
+		})
+		.then((data) => {
+			// If chunks is undefined, 'Save as...'
+			if (!chunks) {
+				const text = buildFile(data.chunks);
+				saveFile(editor.id, text);
+			} else {
+				addMsg(_('Document Saved'), 'success');
+				if (editor.forceReload) {
+					open(editor.id, false);
+					editor.forceReload = false;
+				} else {
+					if (editor.restore) {
+						editor.render(editor.restore);
+						editor.restore = false;
+					}
+					if (editor.restoreHidden) {
+						editor.renderHidden(editor.restoreHidden);
+						editor.restoreHidden = false;
+					}
+				}
+			}
+		})
+		.catch(err => {
+			console.error('Error saving:', err);
+			addMsg(_('Error saving:' + err), 'error');
+		});
+}
+
 function undo(reverse) {
 	var data = hist[reverse ? 'redo' : 'undo'].get();
 	if (!data) return;
@@ -627,7 +907,7 @@ evt('.ed-redo', 'click', function () {
 });
 evt('.ed-exit', 'click', function () {
 	if (confirm(_('Do you want to exit?'))) {
-		fetch('/exit').then(() => window.location.href='about:blank');
+		window.location.href='about:blank';
 	}
 });
 

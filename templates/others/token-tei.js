@@ -249,7 +249,7 @@
 		token = tokens.shift();
 		var formData = new FormData();
 		formData.append('file', new Blob(['form\n' + sel('form', token).textContent + '\n'], { type: 'text/plain' }), 'input.txt');
-		fetch('/proxy?u=' + encodeURIComponent('http://emtsv.elte-dh.hu:5000/morph'), {
+		fetch('https://emtsv.elte-dh.hu/morph', {
 			method: 'POST',
 			body: formData
 		}).then(r => r.text()).then(function (data) {
