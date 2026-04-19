@@ -168,8 +168,12 @@
 		let t = e.target;
 		if (!t) return;
 
+		// Only handle clicks within paragraph containers
 		let c = t.closest('.par.tei');
 		if (!c) return;
+
+		// Only handle clicks on elements inside sentences (.s)
+		if (!t.closest('.s')) return;
 
 		if (localStorage.tableview && t.classList.contains('as-parent')) t = t.parentNode;
 
@@ -403,8 +407,12 @@
 		let t = e.target;
 		if (!t) return;
 
+		// Only handle changes within paragraph containers
 		let c = t.closest('.par.tei');
 		if (!c) return;
+
+		// Only handle changes on elements inside sentences (.s)
+		if (!t.closest('.s')) return;
 
 		let cid = parseInt(c.dataset.cid);
 		let x = _active[cid];

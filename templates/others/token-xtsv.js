@@ -209,8 +209,12 @@
 		var t = e.target;
 		if (!t) return;
 
+		// Only handle clicks within paragraph containers
 		var c = t.closest('.par.xtsv');
 		if (!c) return;
+
+		// Only handle clicks on elements inside sentences (.s)
+		if (!t.closest('.s')) return;
 
 		if (localStorage.tableview && t.classList.contains('as-parent')) t = t.parentNode;
 
@@ -381,8 +385,12 @@
 		var t = e.target;
 		if (!t) return;
 
+		// Only handle changes within paragraph containers
 		var c = t.closest('.par.xtsv');
 		if (!c) return;
+
+		// Only handle changes on elements inside sentences (.s)
+		if (!t.closest('.s')) return;
 
 		var cid = parseInt(c.dataset.cid);
 		var s = t.closest('.s');
