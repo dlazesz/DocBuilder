@@ -14,5 +14,7 @@ Locale = {
 	'Document Saved': 'Dokumentum mentve',
 	'Document changed outside, history action is disabled': 'A dokumentum megváltozott, az előre/hátra lépés le lett tiltva',
 	'Show +1 sentence': '+1 mondat mutatása',
+	'Table View': 'Táblázatos nézet',
+	'Normal View': 'Normál nézet',
 	'': ''
 }
