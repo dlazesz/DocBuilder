@@ -146,6 +146,21 @@
 				} else {
 					ew.innerHTML = tkn.innerHTML || '&nbsp;';
 				}
+				// Add background color based on metaphor and otherIndirect (applies to both table and normal view)
+				let metaphorEl = sel('metaphor', w);
+				let otherIndirectEl = sel('otherIndirect', w);
+				let metaphor = metaphorEl ? metaphorEl.textContent.trim() : '';
+				let otherIndirect = otherIndirectEl ? otherIndirectEl.textContent.trim() : '';
+				if (otherIndirect === 'None' || otherIndirect === 'none') otherIndirect = '0';
+				
+				ew.classList.remove('metaphor-token', 'indirect-token', 'normal-token');
+				if (metaphor === 'True') {
+					ew.classList.add('metaphor-token');
+				} else if (metaphor === 'False' && otherIndirect && otherIndirect !== '0') {
+					ew.classList.add('indirect-token');
+				} else {
+					ew.classList.add('normal-token');
+				}
 				es.appendChild(ew);
 			}, s);
 			let ew = document.createElement(tv ? 'tr' : 'span');
