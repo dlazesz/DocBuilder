@@ -20,6 +20,10 @@
 .par .indirect-token { background-color:#90CAF9 !important; }
 .par .normal-token { background-color:#FFFFFF !important; }
 
+#header .legend-color.metaphor-token { background-color:#EF9A9A !important; }
+#header .legend-color.indirect-token { background-color:#90CAF9 !important; }
+#header .legend-color.normal-token { background-color:#FFFFFF !important; }
+
 .par .active { border-color:#00F; box-shadow:0 0 .5em .125em #00F; position:relative; z-index:1; }
 
 @media (min-width:80em) {
