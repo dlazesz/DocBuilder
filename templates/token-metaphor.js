@@ -34,6 +34,10 @@
 	Locale['Please fill in all fields'] = 'Kérjük, töltse ki az összes mezőt';
 	Locale['Network error'] = 'Hálózati hiba';
 	Locale['New document creation not supported for this template'] = 'Új dokumentum létrehozása nem támogatott ennél a sablonnál';
+	Locale['Token Color Legend'] = 'Token szín jelmagyarázat';
+	Locale['Metaphor'] = 'Metafora';
+	Locale['Other Indirect Meaning'] = 'Egyéb indirekt jelentés';
+	Locale['Normal Token'] = 'Normál token';
 
 	function format(name, el) {
 		if (!el) return '&nbsp;';
@@ -96,9 +100,16 @@
 			if (h.name == '.mm_header') {
 				let html = '';
 				let x = parseXml(h.value);
+				let legend = '<div class="legend">'
+					+ '<h4>' + _('Token Color Legend') + '</h4>'
+					+ '<div class="legend-item"><span class="legend-color metaphor-token"></span> ' + _('Metaphor') + '</div>'
+					+ '<div class="legend-item"><span class="legend-color indirect-token"></span> ' + _('Other Indirect Meaning') + '</div>'
+					+ '<div class="legend-item"><span class="legend-color normal-token"></span> ' + _('Normal Token') + '</div>'
+					+ '</div>';
 				html = '<img class="logo" src="./templates/assets/metaphor-aid.webp" class="logo" style="height:3em"/>'
 					+ '<h2>' + selToText(x, 'title') + '</h2>'
 					+ '<h3>' + selToText(x, 'author') + '</h3>'
+					+ legend
 					+ html;
 				sel('#header').innerHTML = html;
 			}
