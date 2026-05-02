@@ -24,7 +24,7 @@
 #header .legend-color.indirect-token { background-color:#90CAF9 }
 #header .legend-color.direct-token { background-color:#FFFFFF }
 
-.par .active td { border-color:#00F; box-shadow:0 0 .5em .125em #00F; position:relative; z-index:1; }
+.par .active { border-color:#00F; box-shadow:0 0 .5em .125em #00F; position:relative; z-index:1; }
 
 @media (min-width:80em) {
 	.logo { position:absolute; top:.5em; right:calc(50% - 29.5em); }
