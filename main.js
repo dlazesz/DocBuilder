@@ -785,7 +785,7 @@ function retriveFileInIndexedDB(fileName) {
 function newText() {
 	let tt = ttip(sel('header'), null, true);
 	tt.innerHTML = '<h3 style="text-align: center;">' + _('New Text for Metaphor Detection') + '</h3>' +
-		'<input type="text" name="filename" class="input" placeholder="' + _('File Name') + '" value="uj-metafora.xml">' +
+		'<input type="text" name="filename" class="input" placeholder="' + _('File Name') + '" value="uj-metafora-' + new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').replace(/Z$/, '') + '.xml">' +
 		'<input type="url" name="api" class="input" placeholder="API URL" value="' + (localStorage['metaphor_api'] || '') + '">' +
 		'<input type="password" name="token" class="input" placeholder="API Token" value="' + (localStorage['metaphor_token'] || '') + '">' +
 		'<textarea name="content" class="input" placeholder="' + _('Content') + '"></textarea>' +
