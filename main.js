@@ -983,6 +983,10 @@ document.addEventListener('click', function (e) {
 			open(hist.recent.get(t.dataset.open));
 		});
 	}
+	if (t && (t.matches('.new-cancel') || t.matches('.metaphor-new-cancel'))) {
+		trg(t.closest('.tooltip'), 'close');
+		return;
+	}
 	if (t && t.matches('.template-select')) {
 		let templateId = t.dataset.template;
 		let action = t.dataset.action;
