@@ -220,7 +220,7 @@ function listFilesInIndexedDB() {
 }
 
 window.onerror = function (errorMsg, url, lineNum, colNum, error) {
-	addMsg('Exception: ' + errorMsg + ' (' + url + ':' + lineNum + ')', 'error');
+	addMsg(_('Exception: ') + errorMsg + ' (' + url + ':' + lineNum + ')', 'error');
 };
 
 function _(text) {
@@ -558,7 +558,7 @@ function loadJSONFromURL(url) {
 		.then(response => {
 			if (!response.ok) {
 				addMsg(_('Error fetching file: ' + url), 'error');
-				throw new Error('Failed to load ' + url);
+				throw new Error(_('Failed to load ') + url);
 			}
 			return response.json();
 		});
@@ -633,7 +633,7 @@ function chooseFile(extension) {
 			const file = input.files[0];
 			// Clean up
 			input.remove();
-			file ? resolve(file) : reject(new Error('No file chosen'));
+			file ? resolve(file) : reject(new Error(_('No file chosen')));
 		};
 
 		input.click();
@@ -791,6 +791,7 @@ function setChunks(chunks, mChunks) {
 			j++;
 		} else if (i < chunks.length && (j >= mChunks.length || chunks[i].id < mChunks[j].id)) {
 			// If no matching mChunk, just add the chunk
+			// TODO is this correctly localised? -> Comment
 			throw new Error(`No matching mChunk found for chunk with id: ${chunks[i].id}`);
 		} else {
 			// If no matching chunk, just add the mChunk leave mChunk as is (skip)

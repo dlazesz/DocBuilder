@@ -38,6 +38,14 @@
 	Locale['Metaphor'] = 'Metafora';
 	Locale['Other Indirect Meaning'] = 'Egyéb indirekt jelentés';
 	Locale['Direct meaning'] = 'Közvetlen jelentés';
+	Locale['API response format is incorrect'] = 'Az API válasz formátuma helytelen';
+	Locale['API server error'] = 'API szerver hiba';
+	Locale['Processing...'] = 'Feldolgozás...';
+	Locale['Please provide API URL'] = 'Kérjük adjon meg API URL-t';
+	Locale['Please provide content'] = 'Kérjük adjon meg szöveget';
+	Locale['Invalid API response'] = 'Érvénytelen API válasz';
+	Locale['Invalid or wrong API URL'] = 'Érvénytelen vagy hibás API URL';
+	Locale['unknown error'] = 'ismeretlen hiba';
 
 	function format(name, el) {
 		if (!el) return '&nbsp;';
@@ -45,9 +53,9 @@
 			case 'metaphor':
 				return _(TOKEN.SEL_BOOL[el.textContent] || '&nbsp;');
 			case 'otherIndirect':
-			let val = el.textContent.trim();
-			if (val === 'None' || val === 'none') val = '0';
-			return INDIRECT[val] || '&nbsp;';
+				let val = el.textContent.trim();
+				if (val === 'None' || val === 'none') val = '0';
+				return INDIRECT[val] || '&nbsp;';
 			case 'meanings':
 				let c = sel('contextualIndex', el);
 				if (!c || 1 == c.textContent) return format('', sel('primary', el));
@@ -170,7 +178,7 @@
 				let metaphor = metaphorEl ? metaphorEl.textContent.trim() : '';
 				let otherIndirect = otherIndirectEl ? otherIndirectEl.textContent.trim() : '';
 				if (otherIndirect === 'None' || otherIndirect === 'none') otherIndirect = '0';
-				
+
 				ew.classList.remove('metaphor-token', 'indirect-token', 'direct-token');
 				if (metaphor === 'True') {
 					ew.classList.add('metaphor-token');
