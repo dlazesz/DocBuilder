@@ -597,10 +597,10 @@ function getAvailableTemplates() {
 	];
 }
 
-function selectTemplate(action) {
-	let tt = ttip(sel('header'), null, true);
+function selectTemplate(action, event) {
+	let tt = ttip(event.target, event);
+	tt.classList.add('dropdown');
 	let templates = getAvailableTemplates();
-	let html = '<h3 style="text-align: center;">' + _('Select Template') + '</h3>';
 	
 	// For 'new' action, only allow metaphor editor (backend only supports metaphor detection)
 	// TODO: remove this when file creation with different templates is supported
@@ -609,12 +609,14 @@ function selectTemplate(action) {
 	}
 	
 	templates.forEach(template => {
-		html += '<a href="#" class="btn template-select" data-template="' + template.id + '" data-action="' + action + '">' + template.name + '</a><br>';
+		let a = document.createElement('a');
+		a.href = '#';
+		a.className = 'template-select';
+		a.dataset.template = template.id;
+		a.dataset.action = action;
+		a.innerHTML = template.name;
+		tt.appendChild(a);
 	});
-	
-	html += '<div class="center"><a href="#" class="btn template-close">' + _('Close') + '</a></div>';
-	
-	tt.innerHTML = html;
 }
 
 function chooseFile(extension) {
@@ -939,11 +941,13 @@ function undo(reverse) {
 	}
 }
 
-evt('.ed-open', 'click', function () {
-	selectTemplate('open');
+evt('.ed-open', 'click', function (e) {
+	selectTemplate('open', e);
+	e.stopPropagation();
 });
-evt('.ed-new', 'click', function () {
-	selectTemplate('new');
+evt('.ed-new', 'click', function (e) {
+	selectTemplate('new', e);
+	e.stopPropagation();
 });
 evt('.ed-recent', 'click', function (e) {
 	var t = ttip(e.target, e);
@@ -978,10 +982,6 @@ document.addEventListener('click', function (e) {
 		editor.ischanged(function () {
 			open(hist.recent.get(t.dataset.open));
 		});
-	}
-	if (t && t.matches('.template-close')) {
-		trg(t.closest('.tooltip'), 'close');
-		return;
 	}
 	if (t && t.matches('.template-select')) {
 		let templateId = t.dataset.template;
