@@ -1,0 +1,20 @@
+[
+  {
+    "id": "metaphor",
+    "name": "Metafora szerkesztő (tei)",
+    "path": "token-metaphor.json",
+    "new": true
+  },
+  {
+    "id": "tei",
+    "name": "Token szerkesztő (tei)",
+    "path": "token-tei.json",
+    "new": false
+  },
+  {
+    "id": "xtsv",
+    "name": "Token szerkesztő (xtsv)",
+    "path": "token-xtsv.json",
+    "new": false
+  }
+]

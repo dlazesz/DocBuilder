@@ -589,34 +589,37 @@ function loadTemplate(templateDir, url) {
 		});
 }
 
-function getAvailableTemplates() {
-	return [
-		{ id: 'metaphor', name: 'Metafora szerkesztő (tei)', path: 'template.json', dir: 'templates' },
-		{ id: 'tei', name: 'Token szerkesztő (tei)', path: 'token-tei.json', dir: 'templates/others' },
-		{ id: 'xtsv', name: 'Token szerkesztő (xtsv)', path: 'token-xtsv.json', dir: 'templates/others' }
-	];
+function getAvailableTemplates(templateDir) {
+	return loadJSONFromURL(`./${templateDir}/template_list.json`)
+		.then(templateList => {
+			return templateList;
+		})
+		.catch(err => {
+			console.error('Error loading template:', err);
+			// Rethrow so the caller can handle it
+			return Promise.reject(err);
+		});
 }
 
 function selectTemplate(action, event) {
 	let tt = ttip(event.target, event);
 	tt.classList.add('dropdown');
-	let templates = getAvailableTemplates();
-	
-	// For 'new' action, only allow metaphor editor (backend only supports metaphor detection)
-	// TODO: remove this when file creation with different templates is supported
-	if (action === 'new') {
-		templates = templates.filter(t => t.id === 'metaphor');
-	}
-	
-	templates.forEach(template => {
-		let a = document.createElement('a');
-		a.href = '#';
-		a.className = 'template-select';
-		a.dataset.template = template.id;
-		a.dataset.action = action;
-		a.innerHTML = template.name;
-		tt.appendChild(a);
-	});
+	getAvailableTemplates('templates')
+		.then(templates => {
+			if (action === 'new') {
+				templates = templates.filter(t => t.new === true);
+			}
+
+			templates.forEach(template => {
+				let a = document.createElement('a');
+				a.href = '#';
+				a.className = 'template-select';
+				a.dataset.template = template.id;
+				a.dataset.action = action;
+				a.innerHTML = template.name;
+				tt.appendChild(a);
+			});
+		});
 }
 
 function chooseFile(extension) {
@@ -666,6 +669,7 @@ function storeFileInIndexedDB(fileName, data) {
 	});
 }
 
+// TODO currently some calls to this function do not have template parameter
 function open(id, onsuccess, template) {
 	let promise;
 	// Load file from FileInIndexedDB
@@ -673,23 +677,18 @@ function open(id, onsuccess, template) {
 		promise = retriveFileInIndexedDB(id);
 	} else {
 		// Open new file
-		if (template) {
-			// Template is already loaded
-			promise = chooseFile(template.extension)
+		// TODO decide that we reload template every time we open or keep the loaded one?
+		const templatePromise = typeof template === 'string'
+			? loadTemplate('templates', template)
+			: Promise.resolve(template);
+
+		promise = promise = templatePromise
+			.then(template => chooseFile(template.extension)
 				.then(file => readFileAsText(file)
 					.then(text => storeFileInIndexedDB(file.name, prepareData(file.name, text, template)))
-				);
-		} else {
-			// Load default template
-			promise = loadTemplate('templates', 'template.json')
-				.then(template => chooseFile(template.extension)
-					.then(file => readFileAsText(file)
-						.then(text => storeFileInIndexedDB(file.name, prepareData(file.name, text, template)))
-					)
-				);
-		}
+				)
+			);
 	}
-
 	promise.then(storedData => {
 		fileLoaded(storedData, onsuccess);
 	})
@@ -990,38 +989,38 @@ document.addEventListener('click', function (e) {
 	if (t && t.matches('.template-select')) {
 		let templateId = t.dataset.template;
 		let action = t.dataset.action;
-		let templates = getAvailableTemplates();
-		let templateInfo = templates.find(t => t.id === templateId);
-		
-		if (templateInfo) {
-			loadTemplate(templateInfo.dir, templateInfo.path).then(template => {
-				if (action === 'open') {
-					editor.ischanged(function () { 
-						open(undefined, undefined, template);
-					});
-				} else if (action === 'new') {
-					// Call the template's new method if it exists
-					if (window.TOKEN && typeof window.TOKEN.new === 'function') {
-						window.TOKEN.new(template).then(content => {
-							if (content) {
-								let filename = 'uj-' + templateId + '-' + new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').replace(/Z$/, '') + '.' + template.extension;
-								let newData = prepareData(filename, content, template);
-								storeFileInIndexedDB(filename, newData).then(() => {
-									fileLoaded(newData);
+		getAvailableTemplates('templates')
+			.then(templates => {
+				let templateInfo = templates.find(t => t.id === templateId);
+				if (templateInfo) {
+					loadTemplate('templates', templateInfo.path).then(template => {
+						if (action === 'open') {
+							editor.ischanged(function () {
+								open(undefined, undefined, template.path); // TODO here we pass filename
+							});
+						} else if (action === 'new') {
+							// Call the template's new method if it exists
+							if (window.TOKEN && typeof window.TOKEN.new === 'function') {
+								window.TOKEN.new(template).then(content => {
+									if (content) {
+										let filename = 'uj-' + templateId + '-' + new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').replace(/Z$/, '') + '.' + template.extension;
+										let newData = prepareData(filename, content, template);
+										storeFileInIndexedDB(filename, newData).then(() => {
+											fileLoaded(newData);
+										});
+									}
 								});
+							} else {
+								// Fallback to old behavior for templates without new() method
+								newText(template);
 							}
-						});
-					} else {
-						// Fallback to old behavior for templates without new() method
-						newText(template);
-					}
+						}
+					}).catch(err => {
+						addMsg(_('Error loading template:') + err, 'error');
+					});
 				}
-			}).catch(err => {
-				addMsg(_('Error loading template:') + err, 'error');
+				trg(t.closest('.tooltip'), 'close');
 			});
-		}
-		trg(t.closest('.tooltip'), 'close');
-		return;
 	}
 	if (t && t.matches('.new-submit')) {
 		let tt = t.closest('.tooltip');
