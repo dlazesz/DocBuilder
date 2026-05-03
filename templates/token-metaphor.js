@@ -439,7 +439,7 @@
 						editor.forceReload = true;
 						savePar([cid]);
 					} else {
-						addMsg(data.detail || 'unknown error', false, sel('[name="content"]', t.closest('.tooltip')));
+						addMsg(_(data.detail || 'unknown error'), false, sel('[name="content"]', t.closest('.tooltip')));
 					}
 				});
 			}
