@@ -552,6 +552,9 @@ var editor = new Editor(sel('#editor'), function (chunks, values) {
 	save(tosave);
 });
 
+// Initially disable save button since no file is open
+disable('.ed-save', !!editor.id);
+
 function loadJSONFromURL(url) {
 	return fetch(url)
 		.then(response => {
@@ -702,6 +705,7 @@ function fileLoaded(data, onsuccess) {
 		if (onsuccess) onsuccess();
 	});
 	editor.load(data, false);
+	disable('.ed-save', !!editor.id);
 	if (editor.restore) {
 		editor.render(editor.restore);
 		editor.restore = false;
