@@ -46,6 +46,9 @@
 	Locale['Invalid API response'] = 'Érvénytelen API válasz';
 	Locale['Invalid or wrong API URL'] = 'Érvénytelen vagy hibás API URL';
 	Locale['unknown error'] = 'ismeretlen hiba';
+	Locale['Invalid bearer token'] = 'Érvénytelen API token';
+	Locale['Request timeout'] = 'Kérés időtúllépése';
+	Locale['Network error:'] = 'Hálózati hiba:';
 
 	function format(name, el) {
 		if (!el) return '&nbsp;';
@@ -671,6 +674,11 @@
 				'<a href="#" class="btn metaphor-new-cancel">' + _('Cancel') + '</a>' +
 				'</div>';
 
+			// Set minimum height for the modal to fit content
+			tt.style.minHeight = '400px';
+			tt.style.display = 'flex';
+			tt.style.flexDirection = 'column';
+
 			// Handle the submit button
 			let submitBtn = sel('.metaphor-new-submit', tt);
 			let cancelBtn = sel('.metaphor-new-cancel', tt);
@@ -709,15 +717,40 @@
 						'Authorization': 'Bearer ' + token
 					},
 					body: JSON.stringify({text: content})
-				}).then(r => r.ok ? r.text() : r.json()).then(function(data) {
+				}).then(r => {
+					// Check for authentication errors first
+					if (r.status === 401) {
+						return Promise.reject(new Error(_('Invalid bearer token')));
+					}
+					if (!r.ok) {
+						return r.json().then(err => {
+							return Promise.reject(new Error(err.detail || err.message || _('API server error')));
+						}).catch(e => {
+							// If JSON parsing fails, return status error
+							return Promise.reject(new Error(_('API server error')));
+						});
+					}
+					return r.text();
+				}).then(function(data) {
 					if (typeof data == 'string') {
 						trg(tt, 'close');
 						resolve([filename, normalizeDocumentTitle(data, filename)]);
 					} else {
-						addMsg(data.detail || 'unknown error', 'error', tt);
+						addMsg(data.detail || _('unknown error'), 'error', tt);
+						submitBtn.textContent = originalText;
+						submitBtn.classList.remove('disabled');
 					}
 				}).catch(err => {
-					addMsg('Network error: ' + err, 'error', tt);
+					// Catch network errors and invalid bearer token errors
+					let errorMsg = err.message;
+					if (err.name === 'TypeError') {
+						// Network error (could be CORS, connection refused, etc.)
+						errorMsg = _('Network error:') + ' ' + err.message;
+					}
+					addMsg(errorMsg, 'error', tt);
+					// Reset button state
+					submitBtn.textContent = originalText;
+					submitBtn.classList.remove('disabled');
 				});
 			});
 		});
