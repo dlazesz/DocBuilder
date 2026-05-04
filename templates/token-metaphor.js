@@ -574,6 +574,15 @@
 		}
 	});
 
+	function normalizeDocumentTitle(xml, filename) {
+		let title = filename.replace(/\.xml$/i, '');
+		if (!title) return xml;
+		if (/<title\b[^>]*>/i.test(xml)) {
+			return xml.replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, '<title>' + encXml(title) + '</title>');
+		}
+		return xml;
+	}
+
 	// Add new method for creating new metaphor documents
 	TOKEN.new = function() {
 		return new Promise((resolve, reject) => {
@@ -624,7 +633,7 @@
 				}).then(r => r.ok ? r.text() : r.json()).then(function(data) {
 					if (typeof data == 'string') {
 						trg(tt, 'close');
-						resolve([filename, data]);
+						resolve([filename, normalizeDocumentTitle(data, filename)]);
 					} else {
 						addMsg(data.detail || 'unknown error', 'error', tt);
 					}
