@@ -5,6 +5,7 @@ Locale = {
 	'Undo': 'Vissza',
 	'Redo': 'Előre',
 	'Exit': 'Kilépés',
+	'New': 'Új',
 	'Do you want to exit?': 'Biztos ki akarsz lépni a programból?',
 	'Yes': 'Igen',
 	'Cancel': 'Mégse',

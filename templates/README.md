@@ -1,1 +1,1 @@
-Place the template files here and name the JSON file as template.json to be used.
+Place the new template files here and register the new template in template_list.json.

@@ -585,6 +585,39 @@ function loadTemplate(templateDir, url) {
 		});
 }
 
+function getAvailableTemplates(templateDir) {
+	return loadJSONFromURL(`./${templateDir}/template_list.json`)
+		.then(templateList => {
+			return templateList;
+		})
+		.catch(err => {
+			console.error('Error loading template:', err);
+			// Rethrow so the caller can handle it
+			return Promise.reject(err);
+		});
+}
+
+function selectTemplate(action, event) {
+	let tt = ttip(event.target, event);
+	tt.classList.add('dropdown');
+	getAvailableTemplates('templates')
+		.then(templates => {
+			if (action === 'new') {
+				templates = templates.filter(t => t.new === true);
+			}
+
+			templates.forEach(template => {
+				let a = document.createElement('a');
+				a.href = '#';
+				a.className = 'template-select';
+				a.dataset.template = template.id;
+				a.dataset.action = action;
+				a.innerHTML = template.name;
+				tt.appendChild(a);
+			});
+		});
+}
+
 function chooseFile(extension) {
 	return new Promise((resolve, reject) => {
 		// Create a hidden file input restricted to the template extension
@@ -632,14 +665,18 @@ function storeFileInIndexedDB(fileName, data) {
 	});
 }
 
-function open(id, onsuccess) {
+function open(id, onsuccess, template) {
 	let promise;
 	// Load file from FileInIndexedDB
 	if (id !== undefined) {
 		promise = retriveFileInIndexedDB(id);
 	} else {
 		// Open new file
-		promise = loadTemplate('templates', 'template.json')
+		const templatePromise = typeof template === 'string'
+			? loadTemplate('templates', template)
+			: Promise.resolve(template);
+
+		promise = templatePromise
 			.then(template => chooseFile(template.extension)
 				.then(file => readFileAsText(file)
 					.then(text => storeFileInIndexedDB(file.name, prepareData(file.name, text, template)))
@@ -885,8 +922,13 @@ function undo(reverse) {
 	}
 }
 
-evt('.ed-open', 'click', function () {
-	editor.ischanged(function () { open(); });
+evt('.ed-open', 'click', function (e) {
+	selectTemplate('open', e);
+	e.stopPropagation();
+});
+evt('.ed-new', 'click', function (e) {
+	selectTemplate('new', e);
+	e.stopPropagation();
 });
 evt('.ed-recent', 'click', function (e) {
 	var t = ttip(e.target, e);
@@ -915,12 +957,78 @@ evt('.ed-exit', 'click', function () {
 	}
 });
 
+function loadNextScript(scripts, index = 0) {
+	return new Promise((resolve, reject) => {
+		function next(i) {
+			if (i >= scripts.length) {
+				resolve(); // All scripts loaded
+				return;
+			}
+			let js = scripts[i];
+			let e = document.createElement('script');
+			e.src = js;
+			e.onload = () => next(i + 1);
+			e.onerror = () => reject(new Error('Error loading script: ' + js));
+			document.body.appendChild(e);
+		}
+
+		next(index);
+	});
+}
+
+function callTokenNew(template) {
+	let TokenClass = window.TOKEN || (typeof TOKEN !== 'undefined' && TOKEN);
+	if (TokenClass && typeof TokenClass.new === 'function') {
+		TokenClass.new().then(result => {
+			if (result) {
+				let [filename, data] = result;
+				let newData = prepareData(filename, data, template);
+				storeFileInIndexedDB(filename, newData).then(() => {
+					fileLoaded(newData);
+				});
+			}
+		});
+	} else {
+		addMsg(_('New document creation not supported for this template'), 'error');
+	}
+}
+
 document.addEventListener('click', function (e) {
 	var t = e.target;
 	if (t && t.matches('[data-open]')) {
 		editor.ischanged(function () {
 			open(hist.recent.get(t.dataset.open));
 		});
+	}
+	if (t && t.matches('.template-select')) {
+		let templateId = t.dataset.template;
+		let action = t.dataset.action;
+		getAvailableTemplates('templates')
+			.then(templates => {
+				let templateInfo = templates.find(t => t.id === templateId);
+				if (templateInfo) {
+					loadTemplate('templates', templateInfo.path).then(template => {
+						if (action === 'open') {
+							editor.ischanged(function () {
+								open(undefined, undefined, template);
+							});
+						} else if (action === 'new') {
+							// Find scripts not yet loaded
+							let scripts = (template.js || []).filter(js => !sel('script[src="' + js + '"]'));
+							loadNextScript(scripts)
+								.then(() => {
+									callTokenNew(template);
+								})
+								.catch(err => {
+									console.error(err);
+								});
+						}
+					}).catch(err => {
+						addMsg(_('Error loading template:') + err, 'error');
+					});
+				}
+				trg(t.closest('.tooltip'), 'close');
+			});
 	}
 });
 
@@ -929,4 +1037,3 @@ document.addEventListener('click', function (e) {
 
 // 	$('body').removeClass('resizing');
 // });
-
