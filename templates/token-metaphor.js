@@ -181,6 +181,7 @@
 			trg(t.closest('.tooltip'), 'close');
 			return;
 		}
+
 		// Only handle clicks within paragraph containers
 		let c = t.closest('.par.tei');
 		if (!c) return;

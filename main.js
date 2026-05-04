@@ -964,14 +964,11 @@ function loadNextScript(scripts, index = 0) {
 				resolve(); // All scripts loaded
 				return;
 			}
-
 			let js = scripts[i];
 			let e = document.createElement('script');
 			e.src = js;
-
 			e.onload = () => next(i + 1);
 			e.onerror = () => reject(new Error('Error loading script: ' + js));
-
 			document.body.appendChild(e);
 		}
 
