@@ -672,12 +672,11 @@ function open(id, onsuccess, template) {
 		promise = retriveFileInIndexedDB(id);
 	} else {
 		// Open new file
-		// TODO decide that we reload template every time we open or keep the loaded one?
 		const templatePromise = typeof template === 'string'
 			? loadTemplate('templates', template)
 			: Promise.resolve(template);
 
-		promise = promise = templatePromise
+		promise = templatePromise
 			.then(template => chooseFile(template.extension)
 				.then(file => readFileAsText(file)
 					.then(text => storeFileInIndexedDB(file.name, prepareData(file.name, text, template)))
