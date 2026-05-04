@@ -964,8 +964,7 @@ document.addEventListener('click', function (e) {
 			open(hist.recent.get(t.dataset.open));
 		});
 	}
-	// TODO This should be in token-metaphor.js
-	if (t && (t.matches('.new-cancel') || t.matches('.metaphor-new-cancel'))) {
+	if (t && t.matches('.new-cancel')) {
 		trg(t.closest('.tooltip'), 'close');
 		return;
 	}
@@ -976,11 +975,10 @@ document.addEventListener('click', function (e) {
 			.then(templates => {
 				let templateInfo = templates.find(t => t.id === templateId);
 				if (templateInfo) {
-					// TODO Should load the tempalte only when new -> As open() loads the template implicitly
 					loadTemplate('templates', templateInfo.path).then(template => {
 						if (action === 'open') {
 							editor.ischanged(function () {
-								open(undefined, undefined, templateInfo.path); // TODO here we pass filename
+								open(undefined, undefined, template);
 							});
 						} else if (action === 'new') {
 							let scripts = (template.js || []).filter(js => !sel('script[src="' + js + '"]'));
