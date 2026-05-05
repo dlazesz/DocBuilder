@@ -1,10 +1,10 @@
 {
-	"name": "Token editor (xtsv)",
-	"extension": "xtsv",
-	"js": "token.js,token-xtsv.js",
-	"css": "token.css",
-	"chunks": {
-		"^[^\r\n]*": ".x_h",
-		"\r?\n(?:[^\r\n]+\r?\n)+": "x_s"
-	}
+  "name": "Token editor (xtsv)",
+  "extension": "xtsv",
+  "js": "token.js,token-xtsv.js",
+  "css": "token.css",
+  "chunks": {
+    "^[^\r\n]*": ".x_h",
+    "\r?\n(?:[^\r\n]+\r?\n)+": "x_s"
+  }
 }
