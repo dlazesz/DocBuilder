@@ -30,6 +30,8 @@ textarea.input { height:auto; min-height:8em; resize:vertical; }
 }
 .btn.disabled { opacity:.5; cursor:default; }
 
+a.disabled.disabled, .dropdown a.disabled, .tooltip a.disabled { opacity:.5; cursor:default; pointer-events:none; }
+
 .btn.ed-exit { float:right; }
 
 .select { padding:.25em .5em; position:relative; cursor:pointer; }
