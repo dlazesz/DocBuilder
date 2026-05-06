@@ -1,12 +1,12 @@
 {
-	"name": "Token editor (tei)",
-	"extension": "xml",
-	"js": "token.js,token-tei.js",
-	"css": "token.css",
-	"chunks": {
-		"<teiHeader>.*?(?:</teiHeader>)": ".t_header",
-		"<head(?:| [^>]*)>.*?(?:</head>)": ".t_head",
-		"<(lg|p)(?:| [^>]*)>.*?(?:</\\1>)": "t_p",
-		"<annotations(?:/>|>.*?(?:</annotations>))": ".t_annotations"
-	}
+  "name": "Token editor (tei)",
+  "extension": "xml",
+  "js": "token.js,token-tei.js",
+  "css": "token.css",
+  "chunks": {
+    "<teiHeader>.*?(?:</teiHeader>)": ".t_header",
+    "<head(?:| [^>]*)>.*?(?:</head>)": ".t_head",
+    "<(lg|p)(?:| [^>]*)>.*?(?:</\\1>)": "t_p",
+    "<annotations(?:/>|>.*?(?:</annotations>))": ".t_annotations"
+  }
 }
